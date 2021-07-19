@@ -60,6 +60,7 @@ import {
 import { QueryError } from './query-error/query-error';
 import { QueryExtraInfo } from './query-extra-info/query-extra-info';
 import { QueryInput } from './query-input/query-input';
+import { QueryMetricsDialog } from './query-metrics-dialog/query-metrics-dialog';
 import { QueryOutput } from './query-output/query-output';
 import { QueryTimer } from './query-timer/query-timer';
 import { RunButton } from './run-button/run-button';
@@ -99,6 +100,7 @@ export interface QueryViewState {
   editContextDialogOpen: boolean;
   historyDialogOpen: boolean;
   queryHistory: readonly QueryRecord[];
+  queryMetricsDialogOpen: boolean;
 }
 
 export class QueryView extends React.PureComponent<QueryViewProps, QueryViewState> {
@@ -171,6 +173,7 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
       editContextDialogOpen: false,
       historyDialogOpen: false,
       queryHistory,
+      queryMetricsDialogOpen: false,
     };
 
     this.metadataQueryManager = new QueryManager({
@@ -304,6 +307,10 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
     );
   };
 
+  private readonly handleMoreInfo = () => {
+    this.setState({ queryMetricsDialogOpen: true });
+  };
+
   private renderExplainDialog() {
     const { mandatoryQueryContext } = this.props;
     const { explainDialogQuery } = this.state;
@@ -346,6 +353,20 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
           this.setState({ editContextDialogOpen: false });
         }}
         queryContext={queryContext}
+      />
+    );
+  }
+
+  private renderQueryMetricsDialog() {
+    const { queryMetricsDialogOpen, queryResultState } = this.state;
+    if (!queryMetricsDialogOpen || !queryResultState.data) return;
+
+    return (
+      <QueryMetricsDialog
+        queryResult={queryResultState.data}
+        onClose={() => {
+          this.setState({ queryMetricsDialogOpen: false });
+        }}
       />
     );
   }
@@ -446,6 +467,7 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
                 queryResult={queryResult}
                 onDownload={this.handleDownload}
                 onLoadMore={this.handleLoadMore}
+                onMoreInfo={this.handleMoreInfo}
               />
             )}
             {queryResultState.loading && <QueryTimer />}
@@ -622,6 +644,7 @@ export class QueryView extends React.PureComponent<QueryViewProps, QueryViewStat
         {this.renderExplainDialog()}
         {this.renderHistoryDialog()}
         {this.renderEditContextDialog()}
+        {this.renderQueryMetricsDialog()}
       </div>
     );
   }

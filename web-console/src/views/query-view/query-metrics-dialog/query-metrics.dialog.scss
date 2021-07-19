@@ -16,26 +16,31 @@
  * limitations under the License.
  */
 
-import { render } from '@testing-library/react';
-import { QueryResult } from 'druid-query-toolkit';
-import React from 'react';
+.query-metrics-dialog {
+  width: 75vw;
 
-import { QueryExtraInfo } from './query-extra-info';
+  .totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 25px;
 
-describe('QueryExtraInfo', () => {
-  it('matches snapshot', () => {
-    const queryExtraInfo = (
-      <QueryExtraInfo
-        queryResult={QueryResult.BLANK.attachQueryId(
-          'e3ee781b-c0b6-4385-9d99-a8a1994bebac',
-        ).changeQueryDuration(8000)}
-        onDownload={() => {}}
-        onLoadMore={() => {}}
-        onMoreInfo={() => {}}
-      />
-    );
+    .total {
+      text-align: center;
+      cursor: default;
 
-    const { container } = render(queryExtraInfo);
-    expect(container.firstChild).toMatchSnapshot();
-  });
-});
+      .label {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .value {
+        font-size: 22px;
+      }
+    }
+  }
+
+  .query-card {
+    margin-bottom: 15px;
+  }
+}
