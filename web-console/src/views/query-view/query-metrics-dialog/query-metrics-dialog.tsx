@@ -16,14 +16,16 @@
  * limitations under the License.
  */
 
-import { Button, Card, Classes, Dialog, Intent } from '@blueprintjs/core';
+import { Button, Classes, Dialog, Intent } from '@blueprintjs/core';
 import { sum } from 'd3-array';
+import { scaleLinear } from 'd3-scale';
 import { QueryResult } from 'druid-query-toolkit';
 import React from 'react';
+import ReactTable, { Column } from 'react-table';
 
-import { formatDuration, formatInteger } from '../../../utils';
+import { formatDuration, formatInteger, formatPercent } from '../../../utils';
 
-import './query-metrics.dialog.scss';
+import './query-metrics-dialog.scss';
 
 export type QueryExecutionMetrics = Readonly<{
   queryStart: number;
@@ -48,11 +50,11 @@ interface TileEntry<T> {
 
 const TILE_ENTRIES: TileEntry<QueryExecutionMetrics>[] = [
   { name: 'queryMs', label: 'Query time', formatter: formatDuration },
-  { name: 'cpuNanos', label: 'CPU time', formatter: t => formatDuration(1000 * t) },
-  { name: 'threads', label: 'Threads', formatter: formatInteger },
-  { name: 'segments', label: 'Segments', formatter: formatInteger },
   { name: 'rows', label: 'Rows scanned', formatter: formatInteger },
   { name: 'servers', label: 'Servers', formatter: formatInteger },
+  { name: 'cpuNanos', label: 'CPU time', formatter: t => formatDuration(t / 1000) },
+  { name: 'threads', label: 'Threads', formatter: formatInteger },
+  { name: 'segments', label: 'Segments', formatter: formatInteger },
 ];
 
 function aggregateQueryExecutionMetrics(
@@ -96,19 +98,31 @@ export const QueryMetricsDialog = React.memo(function QueryMetricsDialog(
           rows: 1000000,
           cpuNanos: 9999999,
           queryStart: 1620000000,
-          queryMs: 1234,
+          queryMs: 2234,
         },
       },
       {
         queryId: 'xxx',
         metrics: {
-          segments: 30,
+          segments: 20,
           servers: 2,
           threads: 8,
-          rows: 1000000,
+          rows: 1200000,
           cpuNanos: 9999999,
-          queryStart: 1620000000,
-          queryMs: 1234,
+          queryStart: 1620000050,
+          queryMs: 123,
+        },
+      },
+      {
+        queryId: 'xxx',
+        metrics: {
+          segments: 50,
+          servers: 2,
+          threads: 8,
+          rows: 1200000,
+          cpuNanos: 9999999,
+          queryStart: 1620001000,
+          queryMs: 234,
         },
       },
     ];
@@ -123,11 +137,48 @@ export const QueryMetricsDialog = React.memo(function QueryMetricsDialog(
       );
     });
 
-    queries = metrics.map(({ metrics }, i) => (
-      <Card className="query-card" key={i} elevation={3}>
-        The query ran on {metrics.servers} servers, scanned {metrics.rows} rows.
-      </Card>
-    ));
+    const timelineScale = scaleLinear().domain([
+      totals.queryStart,
+      totals.queryStart + totals.queryMs,
+    ]);
+
+    if (metrics.length > 1) {
+      queries = (
+        <ReactTable
+          data={metrics}
+          defaultPageSize={10}
+          columns={TILE_ENTRIES.map(
+            ({ name, label, formatter }) =>
+              ({
+                Header: label,
+                id: name,
+                accessor: ({ metrics }) => metrics[name],
+                Cell: ({ value }) => formatter(value),
+              } as Column<QueryMetrics>),
+          ).concat({
+            Header: 'Timeline',
+            id: 'trace',
+            Cell: function TimelineCell({ original, index }) {
+              const { queryStart, queryMs } = original.metrics;
+              return (
+                <div className="timeline">
+                  <div
+                    className="timeline-bar"
+                    style={{
+                      left: formatPercent(timelineScale(queryStart)),
+                      width: formatPercent(
+                        timelineScale(queryStart + queryMs) - timelineScale(queryStart),
+                      ),
+                      opacity: index ? undefined : 0.5,
+                    }}
+                  />
+                </div>
+              );
+            },
+          })}
+        />
+      );
+    }
   }
 
   return (
