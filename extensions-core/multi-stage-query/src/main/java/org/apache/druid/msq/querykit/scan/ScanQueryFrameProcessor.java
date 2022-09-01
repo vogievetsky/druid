@@ -174,7 +174,8 @@ public class ScanQueryFrameProcessor extends BaseLeafFrameProcessor
         cursorYielder.close();
         return ReturnOrAwait.returnObject(rowsOutput);
       } else {
-        setNextCursor(cursorYielder.get());
+        final long rowsFlushed = setNextCursor(cursorYielder.get());
+        assert rowsFlushed == 0; // There's only ever one cursor when running with a segment
         closer.register(cursorYielder);
       }
     }
@@ -203,14 +204,18 @@ public class ScanQueryFrameProcessor extends BaseLeafFrameProcessor
         final Frame frame = inputChannel.read();
         final FrameSegment frameSegment = new FrameSegment(frame, inputFrameReader, SegmentId.dummy("x"));
 
-        setNextCursor(
-            Iterables.getOnlyElement(
-                makeCursors(
-                    query.withQuerySegmentSpec(new MultipleIntervalSegmentSpec(Intervals.ONLY_ETERNITY)),
-                    mapSegment(frameSegment).asStorageAdapter()
-                ).toList()
-            )
+        final long rowsFlushed = setNextCursor(
+                Iterables.getOnlyElement(
+                        makeCursors(
+                                query.withQuerySegmentSpec(new MultipleIntervalSegmentSpec(Intervals.ONLY_ETERNITY)),
+                                mapSegment(frameSegment).asStorageAdapter()
+                        ).toList()
+                )
         );
+
+        if (rowsFlushed > 0) {
+          return ReturnOrAwait.runAgain();
+        }
       } else if (inputChannel.isFinished()) {
         flushFrameWriter();
         return ReturnOrAwait.returnObject(rowsOutput);
@@ -285,10 +290,11 @@ public class ScanQueryFrameProcessor extends BaseLeafFrameProcessor
     }
   }
 
-  private void setNextCursor(final Cursor cursor) throws IOException
+  private long setNextCursor(final Cursor cursor) throws IOException
   {
-    flushFrameWriter();
+    final long rowsFlushed = flushFrameWriter();
     this.cursor = cursor;
+    return rowsFlushed;
   }
 
   private static Sequence<Cursor> makeCursors(final ScanQuery query, final StorageAdapter adapter)
