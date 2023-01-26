@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import { FormGroup, InputGroup, Intent, MenuItem, Switch } from '@blueprintjs/core';
+import { Button, FormGroup, InputGroup, Intent, MenuItem, Switch } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
 import { SqlQuery, T } from 'druid-query-toolkit';
@@ -40,6 +40,7 @@ import {
 import {
   AsyncActionDialog,
   CompactionDialog,
+  DatasourceCatalogDialog,
   KillDatasourceDialog,
   RetentionDialog,
 } from '../../dialogs';
@@ -48,7 +49,9 @@ import type {
   CompactionConfig,
   CompactionInfo,
   CompactionStatus,
+  DatasourceTableSpec,
   QueryWithContext,
+  TableMetadata,
 } from '../../druid-models';
 import { formatCompactionInfo, zeroCompactionStatus } from '../../druid-models';
 import type { Capabilities, CapabilitiesMode } from '../../helpers';
@@ -59,6 +62,7 @@ import {
   compact,
   countBy,
   deepGet,
+  filterMap,
   formatBytes,
   formatInteger,
   formatMillions,
@@ -214,13 +218,14 @@ function segmentGranularityCountsToRank(row: DatasourceQueryResultRow): number {
 }
 
 interface Datasource extends DatasourceQueryResultRow {
+  readonly catalog?: TableMetadata<DatasourceTableSpec>;
   readonly rules?: Rule[];
   readonly compaction?: CompactionInfo;
   readonly unused?: boolean;
 }
 
 function makeUnusedDatasource(datasource: string): Datasource {
-  return { ...makeEmptyDatasourceQueryResultRow(datasource), rules: [], unused: true };
+  return { ...makeEmptyDatasourceQueryResultRow(datasource), unused: true };
 }
 
 interface DatasourcesAndDefaultRules {
@@ -236,6 +241,10 @@ interface RetentionDialogOpenOn {
 interface CompactionDialogOpenOn {
   readonly datasource: string;
   readonly compactionConfig?: CompactionConfig;
+}
+
+interface DatasourceCatalogDialogOpenOn {
+  existingTableMetadata?: TableMetadata<DatasourceTableSpec>;
 }
 
 export interface DatasourcesViewProps {
@@ -255,6 +264,7 @@ export interface DatasourcesViewState {
   showUnused: boolean;
   retentionDialogOpenOn?: RetentionDialogOpenOn;
   compactionDialogOpenOn?: CompactionDialogOpenOn;
+  datasourceCatalogDialogOpenOn?: DatasourceCatalogDialogOpenOn;
   datasourceToMarkAsUnusedAllSegmentsIn?: string;
   datasourceToMarkAllNonOvershadowedSegmentsAsUsedIn?: string;
   killDatasource?: string;
@@ -502,10 +512,23 @@ ORDER BY 1`;
           }
         }
 
-        return {
-          datasources: datasources.concat(unused.map(makeUnusedDatasource)).map(ds => {
+        // Catalog stuff
+        let datasourceCatalogs: Record<string, TableMetadata<DatasourceTableSpec>> | undefined;
+        try {
+          const datasourceCatalogsResp = await Api.instance.get<
+            TableMetadata<DatasourceTableSpec>[]
+          >('/druid/coordinator/v1/catalog/schemas/druid/tables?format=metadata');
+          datasourceCatalogs = lookupBy(datasourceCatalogsResp.data, dc => dc.id.name);
+        } catch {
+          // No catalogs
+        }
+
+        const fullDatasources: Datasource[] = datasources
+          .concat(unused.map(makeUnusedDatasource))
+          .map(ds => {
             return {
               ...ds,
+              catalog: datasourceCatalogs?.[ds.datasource],
               rules: rules[ds.datasource],
               compaction:
                 compactionConfigs && compactionStatuses
@@ -515,7 +538,20 @@ ORDER BY 1`;
                     }
                   : undefined,
             };
-          }),
+          });
+
+        return {
+          datasources: fullDatasources.concat(
+            filterMap(Object.keys(datasourceCatalogs || {}), datasourceName => {
+              if (fullDatasources.find(fd => fd.datasource === datasourceName)) return;
+              return {
+                ...makeEmptyDatasourceQueryResultRow(datasourceName),
+                catalog: datasourceCatalogs![datasourceName],
+                rules: undefined,
+                compaction: undefined,
+              };
+            }),
+          ),
           defaultRules: rules[DEFAULT_RULES_KEY],
         };
       },
@@ -996,6 +1032,19 @@ ORDER BY 1`;
     );
   }
 
+  private renderDatasourceCatalogDialog() {
+    const { datasourceCatalogDialogOpenOn } = this.state;
+    if (!datasourceCatalogDialogOpenOn) return;
+
+    return (
+      <DatasourceCatalogDialog
+        existingTableMetadata={datasourceCatalogDialogOpenOn.existingTableMetadata}
+        onClose={() => this.setState({ datasourceCatalogDialogOpenOn: undefined })}
+        onChange={() => this.fetchDatasourceData()}
+      />
+    );
+  }
+
   private onDetail(datasource: Datasource): void {
     const { unused, rules, compaction } = datasource;
 
@@ -1070,6 +1119,27 @@ ORDER BY 1`;
                 hoverIcon={IconNames.SEARCH_TEMPLATE}
               >
                 {row.value}
+              </TableClickableCell>
+            ),
+          },
+          {
+            Header: 'Catalog',
+            show: true, // ToDo: complete this
+            filterable: false,
+            accessor: 'catalog',
+            width: 100,
+            Cell: ({ value, original }) => (
+              <TableClickableCell
+                hoverIcon={IconNames.EDIT}
+                onClick={() =>
+                  this.setState({
+                    datasourceCatalogDialogOpenOn: {
+                      existingTableMetadata: original.catalog,
+                    },
+                  })
+                }
+              >
+                {value ? String(value.state) : '-'}
               </TableClickableCell>
             ),
           },
@@ -1530,6 +1600,15 @@ ORDER BY 1`;
             }}
             localStorageKey={LocalStorageKeys.DATASOURCES_REFRESH_RATE}
           />
+          <Button
+            icon={IconNames.PLUS}
+            text="Create datasource"
+            onClick={() => {
+              this.setState({
+                datasourceCatalogDialogOpenOn: {},
+              });
+            }}
+          />
           {this.renderBulkDatasourceActions()}
           <Switch
             checked={showUnused}
@@ -1572,6 +1651,7 @@ ORDER BY 1`;
         {this.renderKillAction()}
         {this.renderRetentionDialog()}
         {this.renderCompactionDialog()}
+        {this.renderDatasourceCatalogDialog()}
         {this.renderForceCompactAction()}
       </div>
     );

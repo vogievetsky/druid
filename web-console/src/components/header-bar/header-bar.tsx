@@ -67,7 +67,8 @@ export type HeaderActiveTab =
   | 'services'
   | 'workbench'
   | 'sql-data-loader'
-  | 'lookups';
+  | 'lookups'
+  | 'inputs';
 
 const DruidLogo = React.memo(function DruidLogo() {
   return (
@@ -272,7 +273,7 @@ export const HeaderBar = React.memo(function HeaderBar(props: HeaderBarProps) {
     </Menu>
   );
 
-  const moreViewsMenuActive = oneOf(active, 'lookups');
+  const moreViewsMenuActive = oneOf(active, 'lookups', 'inputs');
   const moreViewsMenu = (
     <Menu>
       <MenuItem
@@ -281,6 +282,13 @@ export const HeaderBar = React.memo(function HeaderBar(props: HeaderBarProps) {
         href="#lookups"
         disabled={!capabilities.hasCoordinatorAccess()}
         selected={active === 'lookups'}
+      />
+      <MenuItem
+        icon={IconNames.LAYERS}
+        active={active === 'inputs'}
+        text="Inputs"
+        href="#inputs"
+        disabled={!capabilities.hasCoordinatorAccess()}
       />
     </Menu>
   );

@@ -34,6 +34,7 @@ import {
   DatasourcesView,
   HomeView,
   IngestionView,
+  InputsView,
   LoadDataView,
   LookupsView,
   SegmentsView,
@@ -355,6 +356,10 @@ export class ConsoleApplication extends React.PureComponent<
     return this.wrapInViewContainer('lookups', <LookupsView />);
   };
 
+  private readonly wrappedInputsView = () => {
+    return this.wrapInViewContainer('inputs', <InputsView />);
+  };
+
   render(): JSX.Element {
     const { capabilities, capabilitiesLoading } = this.state;
 
@@ -406,6 +411,7 @@ export class ConsoleApplication extends React.PureComponent<
               {capabilities.hasCoordinatorAccess() && (
                 <Route path="/lookups" component={this.wrappedLookupsView} />
               )}
+              <Route path="/inputs" component={this.wrappedInputsView} />
               <Route component={this.wrappedHomeView} />
             </Switch>
           </div>

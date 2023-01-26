@@ -16,13 +16,25 @@
  * limitations under the License.
  */
 
-export * from './datasources-view/datasources-view';
-export * from './home-view/home-view';
-export * from './ingestion-view/ingestion-view';
-export * from './inputs-view/inputs-view';
-export * from './load-data-view/load-data-view';
-export * from './lookups-view/lookups-view';
-export * from './segments-view/segments-view';
-export * from './services-view/services-view';
-export * from './sql-data-loader-view/sql-data-loader-view';
-export * from './workbench-view/workbench-view';
+@import '../../variables';
+
+.datasource-catalog-dialog {
+  &.#{$bp-ns}-dialog {
+    height: 80vh;
+  }
+
+  .table-name-group {
+    margin: 10px 15px 0 15px;
+  }
+
+  .form-json-selector {
+    margin: 15px;
+  }
+
+  .content {
+    margin: 0 15px 10px 0;
+    padding: 0 5px 0 15px;
+    flex: 1;
+    overflow: auto;
+  }
+}

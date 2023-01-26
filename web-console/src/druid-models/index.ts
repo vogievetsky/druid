@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+export * from './catalog/catalog';
 export * from './compaction-config/compaction-config';
 export * from './compaction-status/compaction-status';
 export * from './coordinator-dynamic-config/coordinator-dynamic-config';

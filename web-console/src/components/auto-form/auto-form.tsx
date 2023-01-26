@@ -72,6 +72,7 @@ export interface Field<M> {
   valueAdjustment?: (value: any) => any;
   adjustment?: (model: Partial<M>) => Partial<M>;
   issueWithValue?: (value: any) => string | undefined;
+  warpedInKey?: string;
 
   customSummary?: (v: any) => string;
   customDialog?: (o: {
@@ -379,12 +380,18 @@ export class AutoForm<T extends Record<string, any>> extends React.PureComponent
   private renderStringArrayInput(field: Field<T>): JSX.Element {
     const { model, large } = this.props;
     const { required, defaultValue, modelValue } = AutoForm.computeFieldValues(model, field);
+    const { warpedInKey } = field;
 
     return (
       <ArrayInput
-        values={modelValue || defaultValue || []}
-        onChange={(v: any) => {
-          this.fieldChange(field, v);
+        values={(modelValue || defaultValue || []).map((v: any) =>
+          warpedInKey ? v[warpedInKey] : v,
+        )}
+        onChange={vs => {
+          this.fieldChange(
+            field,
+            vs?.map(v => (warpedInKey ? { [warpedInKey]: v } : v)),
+          );
         }}
         placeholder={AutoForm.evaluateFunctor(field.placeholder, model, '')}
         large={large}
