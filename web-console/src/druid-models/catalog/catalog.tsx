@@ -19,7 +19,8 @@
 import { Code } from '@blueprintjs/core';
 import React from 'react';
 
-import { ExternalLink, Field } from '../../components';
+import type { Field } from '../../components';
+import { ExternalLink } from '../../components';
 import { getLink } from '../../links';
 import { deepGet, oneOf } from '../../utils';
 import { FILTER_SUGGESTIONS } from '../input-source/input-source';
@@ -43,10 +44,23 @@ export interface DatasourceTableSpec {
     targetSegmentRows?: number;
     tags?: Record<string, any>;
   };
-  columns?: any[];
+  columns?: DatasourceTableColumn[];
+}
+
+export interface DatasourceTableColumn {
+  name: string;
+  sqlType: string;
+  properties?: {
+    description?: string;
+  };
 }
 
 export const DATASOURCE_TABLE_SPEC_FIELDS: Field<DatasourceTableSpec>[] = [
+  {
+    name: 'properties.description',
+    type: 'string',
+    info: <>A general description on the table.</>,
+  },
   {
     name: 'properties.segmentGranularity',
     type: 'string',
@@ -67,6 +81,11 @@ export const DATASOURCE_TABLE_SPEC_FIELDS: Field<DatasourceTableSpec>[] = [
     type: 'string-array',
     info: 'Cluster by columns',
     warpedInKey: 'column',
+  },
+  {
+    name: 'properties.sealed',
+    type: 'boolean',
+    defaultValue: false,
   },
   {
     name: 'properties.targetSegmentRows',

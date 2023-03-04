@@ -16,20 +16,71 @@
  * limitations under the License.
  */
 
-import { Button, Classes, Dialog, FormGroup, InputGroup, Intent } from '@blueprintjs/core';
+import {
+  Button,
+  Classes,
+  ControlGroup,
+  Dialog,
+  FormGroup,
+  HTMLSelect,
+  InputGroup,
+  Intent,
+} from '@blueprintjs/core';
+import { IconNames } from '@blueprintjs/icons';
 import React, { useState } from 'react';
 
-import { AutoForm, FormJsonSelector, FormJsonTabs, JsonInput } from '../../components';
-import {
-  COMPACTION_CONFIG_FIELDS,
-  DATASOURCE_TABLE_SPEC_FIELDS,
-  DatasourceTableSpec,
-  TableMetadata,
-} from '../../druid-models';
+import type { FormJsonTabs } from '../../components';
+import { AutoForm, FormJsonSelector, JsonInput } from '../../components';
+import type { DatasourceTableColumn, DatasourceTableSpec, TableMetadata } from '../../druid-models';
+import { COMPACTION_CONFIG_FIELDS, DATASOURCE_TABLE_SPEC_FIELDS } from '../../druid-models';
 import { Api, AppToaster } from '../../singletons';
-import { getDruidErrorMessage } from '../../utils';
+import { deepSet, getDruidErrorMessage } from '../../utils';
 
 import './datasource-catalog-dialog.scss';
+
+const DRUID_SQL_TYPES: string[] = ['TIMESTAMP', 'VARCHAR', 'BIGINT', 'FLOAT', 'DOUBLE'];
+
+export interface ColumnEntryProps {
+  column: DatasourceTableColumn;
+  onChange(column: DatasourceTableColumn): void;
+  onDelete(): void;
+}
+
+export const ColumnEntry = function ColumnEntry(props: ColumnEntryProps) {
+  const { column, onChange, onDelete } = props;
+
+  return (
+    <ControlGroup className="column-entry" fill>
+      <HTMLSelect
+        value={column.sqlType}
+        onChange={e => onChange(deepSet(column, 'sqlType', e.target.value))}
+        disabled={column.name === '__time'}
+      >
+        {DRUID_SQL_TYPES.map(v => (
+          <option key={v} value={v}>
+            {v}
+          </option>
+        ))}
+      </HTMLSelect>
+      <InputGroup
+        placeholder="Name"
+        value={column.name}
+        onChange={e => onChange(deepSet(column, 'name', e.target.value))}
+        autoFocus={!column.name}
+      />
+      <InputGroup
+        placeholder="Description"
+        value={column.properties?.description || ''}
+        onChange={e =>
+          onChange(deepSet(column, 'properties.description', e.target.value || undefined))
+        }
+      />
+      <Button icon={IconNames.ARROW_UP} />
+      <Button icon={IconNames.ARROW_DOWN} />
+      <Button icon={IconNames.TRASH} onClick={onDelete} />
+    </ControlGroup>
+  );
+};
 
 export interface DatasourceCatalogDialogProps {
   existingTableMetadata: TableMetadata<DatasourceTableSpec> | undefined;
@@ -50,6 +101,15 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
       properties: {
         segmentGranularity: 'P1D',
       },
+      columns: [
+        {
+          name: '__time',
+          sqlType: 'TIMESTAMP',
+          properties: {
+            description: 'The primary time column',
+          },
+        },
+      ],
     },
   );
   const [jsonError, setJsonError] = useState<Error | undefined>();
@@ -59,6 +119,11 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
     DATASOURCE_TABLE_SPEC_FIELDS,
   );
   const disableSubmit = Boolean(jsonError || issueWithCurrentCatalog);
+  const columns = currentSpec.columns || [];
+
+  function changeColumns(columns: DatasourceTableColumn[]): void {
+    setCurrentSpec({ ...currentSpec, columns });
+  }
 
   return (
     <Dialog
@@ -66,23 +131,47 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
       isOpen
       onClose={onClose}
       canOutsideClickClose={false}
-      title="Datasource catalog"
+      title={existingTableMetadata ? `Catalog entry for: ${newName}` : 'New catalog entry'}
     >
-      <FormGroup className="table-name-group" label="Table name">
-        <InputGroup
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          readOnly={Boolean(existingTableMetadata)}
-        />
-      </FormGroup>
+      {!existingTableMetadata && (
+        <FormGroup className="table-name-group" label="Table name">
+          <InputGroup value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
+        </FormGroup>
+      )}
       <FormJsonSelector tab={currentTab} onChange={setCurrentTab} />
       <div className="content">
         {currentTab === 'form' ? (
-          <AutoForm
-            fields={DATASOURCE_TABLE_SPEC_FIELDS}
-            model={currentSpec}
-            onChange={m => setCurrentSpec(m)}
-          />
+          <>
+            <AutoForm
+              fields={DATASOURCE_TABLE_SPEC_FIELDS}
+              model={currentSpec}
+              onChange={m => setCurrentSpec(m)}
+            />
+            <FormGroup label="Columns">
+              {columns.map((column, i) => (
+                <ColumnEntry
+                  key={i}
+                  column={column}
+                  onChange={c => changeColumns(columns.map((col, j) => (i === j ? c : col)))}
+                  onDelete={() => changeColumns(columns.filter((_, j) => i !== j))}
+                />
+              ))}
+              <Button
+                fill
+                icon={IconNames.PLUS}
+                onClick={() =>
+                  changeColumns(
+                    columns.concat([
+                      {
+                        name: '',
+                        sqlType: 'VARCHAR',
+                      },
+                    ]),
+                  )
+                }
+              />
+            </FormGroup>
+          </>
         ) : (
           <JsonInput
             value={currentSpec}

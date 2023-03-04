@@ -1139,7 +1139,9 @@ ORDER BY 1`;
                   })
                 }
               >
-                {value ? String(value.state) : '-'}
+                {value?.state !== 'ACTIVE'
+                  ? '-'
+                  : pluralIfNeeded((deepGet(value, 'spec.columns') || []).length, 'column')}
               </TableClickableCell>
             ),
           },
