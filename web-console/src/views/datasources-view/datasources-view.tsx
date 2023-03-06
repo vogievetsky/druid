@@ -1125,11 +1125,11 @@ ORDER BY 1`;
             ),
           },
           {
-            Header: 'Catalog',
+            Header: twoLines('Table', 'schema'),
             show: true, // ToDo: complete this
             filterable: false,
             accessor: 'catalog',
-            width: 100,
+            width: 110,
             Cell: ({ value, original }) => (
               <TableClickableCell
                 hoverIcon={IconNames.EDIT}
@@ -1143,8 +1143,10 @@ ORDER BY 1`;
                 }
               >
                 {value?.state !== 'ACTIVE'
-                  ? '-'
-                  : pluralIfNeeded((deepGet(value, 'spec.columns') || []).length, 'column')}
+                  ? 'Emergent (?)'
+                  : deepGet(value, 'spec.properties.sealed')
+                  ? 'Sealed'
+                  : 'Partial'}
               </TableClickableCell>
             ),
           },
@@ -1607,7 +1609,7 @@ ORDER BY 1`;
           />
           <Button
             icon={IconNames.PLUS}
-            text="Create datasource"
+            text="Create table schema"
             onClick={() => {
               this.setState({
                 datasourceCatalogDialogOpenOn: {},

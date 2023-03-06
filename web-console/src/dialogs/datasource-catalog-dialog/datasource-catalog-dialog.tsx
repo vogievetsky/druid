@@ -130,15 +130,16 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
     setCurrentSpec({ ...currentSpec, columns });
   }
 
+  const isNew = !existingTableMetadata && !initDatasource;
   return (
     <Dialog
       className="datasource-catalog-dialog"
       isOpen
       onClose={onClose}
       canOutsideClickClose={false}
-      title={existingTableMetadata ? `Catalog entry for: ${newName}` : 'New catalog entry'}
+      title={isNew ? 'New catalog entry' : `Catalog entry for: ${newName}`}
     >
-      {!existingTableMetadata && !initDatasource && (
+      {isNew && (
         <FormGroup className="table-name-group" label="Table name">
           <InputGroup value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
         </FormGroup>

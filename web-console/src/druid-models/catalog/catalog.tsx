@@ -88,6 +88,11 @@ export const DATASOURCE_TABLE_SPEC_FIELDS: Field<DatasourceTableSpec>[] = [
     defaultValue: false,
   },
   {
+    name: 'properties.hiddenColumns',
+    type: 'string-array',
+    defined: s => !deepGet(s, 'properties.sealed'),
+  },
+  {
     name: 'properties.targetSegmentRows',
     type: 'number',
     defaultValue: 5000000,
