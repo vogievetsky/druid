@@ -34,7 +34,7 @@ import { AutoForm, FormJsonSelector, JsonInput } from '../../components';
 import type { DatasourceTableColumn, DatasourceTableSpec, TableMetadata } from '../../druid-models';
 import { COMPACTION_CONFIG_FIELDS, DATASOURCE_TABLE_SPEC_FIELDS } from '../../druid-models';
 import { Api, AppToaster } from '../../singletons';
-import { deepSet, getDruidErrorMessage } from '../../utils';
+import { deepSet, getDruidErrorMessage, swapElements } from '../../utils';
 
 import './datasource-catalog-dialog.scss';
 
@@ -43,11 +43,14 @@ const DRUID_SQL_TYPES: string[] = ['TIMESTAMP', 'VARCHAR', 'BIGINT', 'FLOAT', 'D
 export interface ColumnEntryProps {
   column: DatasourceTableColumn;
   onChange(column: DatasourceTableColumn): void;
+  onMove(direction: number): void;
   onDelete(): void;
+  first: boolean;
+  last: boolean;
 }
 
 export const ColumnEntry = function ColumnEntry(props: ColumnEntryProps) {
-  const { column, onChange, onDelete } = props;
+  const { column, onChange, onMove, onDelete, first, last } = props;
 
   return (
     <ControlGroup className="column-entry" fill>
@@ -75,8 +78,8 @@ export const ColumnEntry = function ColumnEntry(props: ColumnEntryProps) {
           onChange(deepSet(column, 'properties.description', e.target.value || undefined))
         }
       />
-      <Button icon={IconNames.ARROW_UP} />
-      <Button icon={IconNames.ARROW_DOWN} />
+      <Button icon={IconNames.ARROW_UP} onClick={() => onMove(-1)} disabled={first} />
+      <Button icon={IconNames.ARROW_DOWN} onClick={() => onMove(1)} disabled={last} />
       <Button icon={IconNames.TRASH} onClick={onDelete} />
     </ControlGroup>
   );
@@ -84,6 +87,7 @@ export const ColumnEntry = function ColumnEntry(props: ColumnEntryProps) {
 
 export interface DatasourceCatalogDialogProps {
   existingTableMetadata: TableMetadata<DatasourceTableSpec> | undefined;
+  initDatasource: string | undefined;
   onClose(): void;
   onChange(): void;
 }
@@ -91,10 +95,10 @@ export interface DatasourceCatalogDialogProps {
 export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDialog(
   props: DatasourceCatalogDialogProps,
 ) {
-  const { existingTableMetadata, onClose, onChange } = props;
+  const { existingTableMetadata, initDatasource, onClose, onChange } = props;
 
   const [currentTab, setCurrentTab] = useState<FormJsonTabs>('form');
-  const [newName, setNewName] = useState(existingTableMetadata?.id?.name || '');
+  const [newName, setNewName] = useState(existingTableMetadata?.id?.name || initDatasource || '');
   const [currentSpec, setCurrentSpec] = useState<Partial<DatasourceTableSpec>>(
     existingTableMetadata?.spec || {
       type: 'datasource',
@@ -120,6 +124,7 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
   );
   const disableSubmit = Boolean(jsonError || issueWithCurrentCatalog);
   const columns = currentSpec.columns || [];
+  const lastColumnIndex = columns.length - 1;
 
   function changeColumns(columns: DatasourceTableColumn[]): void {
     setCurrentSpec({ ...currentSpec, columns });
@@ -133,7 +138,7 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
       canOutsideClickClose={false}
       title={existingTableMetadata ? `Catalog entry for: ${newName}` : 'New catalog entry'}
     >
-      {!existingTableMetadata && (
+      {!existingTableMetadata && !initDatasource && (
         <FormGroup className="table-name-group" label="Table name">
           <InputGroup value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
         </FormGroup>
@@ -152,8 +157,11 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
                 <ColumnEntry
                   key={i}
                   column={column}
+                  onMove={direction => changeColumns(swapElements(columns, i, i + direction))}
                   onChange={c => changeColumns(columns.map((col, j) => (i === j ? c : col)))}
                   onDelete={() => changeColumns(columns.filter((_, j) => i !== j))}
+                  first={i === 0}
+                  last={i === lastColumnIndex}
                 />
               ))}
               <Button

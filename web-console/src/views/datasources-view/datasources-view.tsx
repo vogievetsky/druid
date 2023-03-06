@@ -245,6 +245,7 @@ interface CompactionDialogOpenOn {
 
 interface DatasourceCatalogDialogOpenOn {
   existingTableMetadata?: TableMetadata<DatasourceTableSpec>;
+  initDatasource?: string;
 }
 
 export interface DatasourcesViewProps {
@@ -1039,6 +1040,7 @@ ORDER BY 1`;
     return (
       <DatasourceCatalogDialog
         existingTableMetadata={datasourceCatalogDialogOpenOn.existingTableMetadata}
+        initDatasource={datasourceCatalogDialogOpenOn.initDatasource}
         onClose={() => this.setState({ datasourceCatalogDialogOpenOn: undefined })}
         onChange={() => this.fetchDatasourceData()}
       />
@@ -1135,6 +1137,7 @@ ORDER BY 1`;
                   this.setState({
                     datasourceCatalogDialogOpenOn: {
                       existingTableMetadata: original.catalog,
+                      initDatasource: original.datasource,
                     },
                   })
                 }
