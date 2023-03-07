@@ -21,6 +21,7 @@ export * from './action-icon/action-icon';
 export * from './array-input/array-input';
 export * from './auto-form/auto-form';
 export * from './braced-text/braced-text';
+export * from './catalog-column-entry/catalog-column-entry';
 export * from './center-message/center-message';
 export * from './clearable-input/clearable-input';
 export * from './click-to-copy/click-to-copy';

@@ -46,12 +46,12 @@ import {
 } from '../../dialogs';
 import { DatasourceTableActionDialog } from '../../dialogs/datasource-table-action-dialog/datasource-table-action-dialog';
 import type {
+  CatalogEntry,
   CompactionConfig,
   CompactionInfo,
   CompactionStatus,
   DatasourceTableSpec,
   QueryWithContext,
-  TableMetadata,
 } from '../../druid-models';
 import { formatCompactionInfo, zeroCompactionStatus } from '../../druid-models';
 import type { Capabilities, CapabilitiesMode } from '../../helpers';
@@ -218,7 +218,7 @@ function segmentGranularityCountsToRank(row: DatasourceQueryResultRow): number {
 }
 
 interface Datasource extends DatasourceQueryResultRow {
-  readonly catalog?: TableMetadata<DatasourceTableSpec>;
+  readonly catalog?: CatalogEntry<DatasourceTableSpec>;
   readonly rules?: Rule[];
   readonly compaction?: CompactionInfo;
   readonly unused?: boolean;
@@ -244,7 +244,7 @@ interface CompactionDialogOpenOn {
 }
 
 interface DatasourceCatalogDialogOpenOn {
-  existingTableMetadata?: TableMetadata<DatasourceTableSpec>;
+  existingTableMetadata?: CatalogEntry<DatasourceTableSpec>;
   initDatasource?: string;
 }
 
@@ -514,10 +514,10 @@ ORDER BY 1`;
         }
 
         // Catalog stuff
-        let datasourceCatalogs: Record<string, TableMetadata<DatasourceTableSpec>> | undefined;
+        let datasourceCatalogs: Record<string, CatalogEntry<DatasourceTableSpec>> | undefined;
         try {
           const datasourceCatalogsResp = await Api.instance.get<
-            TableMetadata<DatasourceTableSpec>[]
+            CatalogEntry<DatasourceTableSpec>[]
           >('/druid/coordinator/v1/catalog/schemas/druid/tables?format=metadata');
           datasourceCatalogs = lookupBy(datasourceCatalogsResp.data, dc => dc.id.name);
         } catch {
@@ -1039,7 +1039,7 @@ ORDER BY 1`;
 
     return (
       <DatasourceCatalogDialog
-        existingTableMetadata={datasourceCatalogDialogOpenOn.existingTableMetadata}
+        existingCatalogEntry={datasourceCatalogDialogOpenOn.existingTableMetadata}
         initDatasource={datasourceCatalogDialogOpenOn.initDatasource}
         onClose={() => this.setState({ datasourceCatalogDialogOpenOn: undefined })}
         onChange={() => this.fetchDatasourceData()}
@@ -1143,7 +1143,7 @@ ORDER BY 1`;
                 }
               >
                 {value?.state !== 'ACTIVE'
-                  ? 'Emergent (?)'
+                  ? 'Inferred'
                   : deepGet(value, 'spec.properties.sealed')
                   ? 'Sealed'
                   : 'Partial'}

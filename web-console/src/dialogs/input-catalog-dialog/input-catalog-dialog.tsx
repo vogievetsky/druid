@@ -16,18 +16,21 @@
  * limitations under the License.
  */
 
-import { Button, Classes, Dialog, Intent } from '@blueprintjs/core';
+import { Button, Classes, Dialog, FormGroup, InputGroup, Intent } from '@blueprintjs/core';
+import { IconNames } from '@blueprintjs/icons';
 import React, { useState } from 'react';
 
-import { AutoForm, FormJsonSelector, FormJsonTabs, JsonInput } from '../../components';
-import { COMPACTION_CONFIG_FIELDS, getInputCatalogFields, InputCatalog } from '../../druid-models';
+import type { FormJsonTabs } from '../../components';
+import { AutoForm, CatalogColumnEntry, FormJsonSelector, JsonInput } from '../../components';
+import type { CatalogColumn, CatalogEntry, ExternalTableSpec } from '../../druid-models';
+import { EXTERNAL_TABLE_SPEC_FIELDS } from '../../druid-models';
 import { Api, AppToaster } from '../../singletons';
-import { getDruidErrorMessage } from '../../utils';
+import { getDruidErrorMessage, swapElements } from '../../utils';
 
 import './input-catalog-dialog.scss';
 
 export interface InputCatalogDialogProps {
-  inputCatalog: InputCatalog | undefined;
+  existingCatalogEntry: CatalogEntry<ExternalTableSpec> | undefined;
   onClose(): void;
   onChange(): void;
 }
@@ -35,67 +38,104 @@ export interface InputCatalogDialogProps {
 export const InputCatalogDialog = React.memo(function InputCatalogDialog(
   props: InputCatalogDialogProps,
 ) {
-  const { inputCatalog, onClose, onChange } = props;
+  const { existingCatalogEntry, onClose, onChange } = props;
 
   const [currentTab, setCurrentTab] = useState<FormJsonTabs>('form');
-  const [currentCatalog, setCurrentCatalog] = useState<Partial<InputCatalog>>(
-    inputCatalog || {
-      dbSchema: 'input',
-      spec: {
-        type: 'input',
-        properties: {},
-        columns: [],
-      },
+  const [newName, setNewName] = useState(existingCatalogEntry?.id?.name || '');
+  const [currentSpec, setCurrentSpec] = useState<Partial<ExternalTableSpec>>(
+    existingCatalogEntry?.spec || {
+      type: 'extern',
+      properties: {},
     },
   );
   const [jsonError, setJsonError] = useState<Error | undefined>();
 
-  const inputCatalogFields = getInputCatalogFields(!inputCatalog);
-  const issueWithCurrentCatalog = AutoForm.issueWithModel(currentCatalog, inputCatalogFields);
+  const issueWithCurrentCatalog = AutoForm.issueWithModel(currentSpec, EXTERNAL_TABLE_SPEC_FIELDS);
   const disableSubmit = Boolean(jsonError || issueWithCurrentCatalog);
+  const columns = currentSpec.columns || [];
+  const lastColumnIndex = columns.length - 1;
 
+  function changeColumns(columns: CatalogColumn[]): void {
+    setCurrentSpec({ ...currentSpec, columns });
+  }
+
+  const isNew = !existingCatalogEntry;
   return (
     <Dialog
       className="input-catalog-dialog"
       isOpen
       onClose={onClose}
       canOutsideClickClose={false}
-      title="Input catalog"
+      title={isNew ? 'New external catalog entry' : `External catalog entry for: ${newName}`}
     >
+      {isNew && (
+        <FormGroup className="table-name-group" label="External table name">
+          <InputGroup value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
+        </FormGroup>
+      )}
       <FormJsonSelector tab={currentTab} onChange={setCurrentTab} />
       <div className="content">
         {currentTab === 'form' ? (
-          <AutoForm
-            fields={inputCatalogFields}
-            model={currentCatalog}
-            onChange={m => setCurrentCatalog(m)}
-          />
+          <>
+            <AutoForm
+              fields={EXTERNAL_TABLE_SPEC_FIELDS}
+              model={currentSpec}
+              onChange={m => setCurrentSpec(m)}
+            />
+            <FormGroup label="Columns">
+              {columns.map((column, i) => (
+                <CatalogColumnEntry
+                  key={i}
+                  column={column}
+                  onMove={direction => changeColumns(swapElements(columns, i, i + direction))}
+                  onChange={c => changeColumns(columns.map((col, j) => (i === j ? c : col)))}
+                  onDelete={() => changeColumns(columns.filter((_, j) => i !== j))}
+                  first={i === 0}
+                  last={i === lastColumnIndex}
+                />
+              ))}
+              <Button
+                fill
+                icon={IconNames.PLUS}
+                onClick={() =>
+                  changeColumns(
+                    columns.concat([
+                      {
+                        name: '',
+                        sqlType: 'VARCHAR',
+                      },
+                    ]),
+                  )
+                }
+              />
+            </FormGroup>
+          </>
         ) : (
           <JsonInput
-            value={currentCatalog}
+            value={currentSpec}
             onChange={v => {
-              setCurrentCatalog(v);
+              setCurrentSpec(v);
               setJsonError(undefined);
             }}
             onError={setJsonError}
-            issueWithValue={value => AutoForm.issueWithModel(value, COMPACTION_CONFIG_FIELDS)}
+            issueWithValue={value => AutoForm.issueWithModel(value, EXTERNAL_TABLE_SPEC_FIELDS)}
             height="100%"
           />
         )}
       </div>
       <div className={Classes.DIALOG_FOOTER}>
         <div className={Classes.DIALOG_FOOTER_ACTIONS}>
-          {inputCatalog && (
+          {existingCatalogEntry && (
             <Button
               text="Delete"
               intent={Intent.DANGER}
               onClick={async () => {
-                if (!inputCatalog) return;
+                if (!existingCatalogEntry) return;
                 try {
                   await Api.instance.delete(
-                    `/druid/coordinator/v1/catalog/tables/${Api.encodePath(
-                      inputCatalog.dbSchema,
-                    )}/${Api.encodePath(inputCatalog.name)}`,
+                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(
+                      existingCatalogEntry.id.name,
+                    )}`,
                   );
                 } catch (e) {
                   AppToaster.show({
@@ -111,25 +151,26 @@ export const InputCatalogDialog = React.memo(function InputCatalogDialog(
           )}
           <Button text="Close" onClick={onClose} />
           <Button
-            text={inputCatalog ? 'Update' : 'Create'}
+            text={existingCatalogEntry ? 'Update' : 'Create'}
             intent={Intent.PRIMARY}
             disabled={disableSubmit}
             onClick={async () => {
               try {
-                if (inputCatalog) {
+                if (existingCatalogEntry) {
                   // Update
-                  const updateTime = inputCatalog?.updateTime;
+                  const updateTime = existingCatalogEntry.updateTime;
                   await Api.instance.post(
-                    `/druid/coordinator/v1/catalog/tables/${Api.encodePath(
-                      inputCatalog.dbSchema,
-                    )}/${Api.encodePath(inputCatalog.name)}${
+                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}${
                       updateTime ? `?version=${updateTime}` : ''
                     }`,
-                    currentCatalog.spec,
+                    currentSpec,
                   );
                 } else {
                   // Create
-                  await Api.instance.post(`/druid/coordinator/v1/catalog/tables`, currentCatalog);
+                  await Api.instance.post(
+                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}`,
+                    currentSpec,
+                  );
                 }
               } catch (e) {
                 AppToaster.show({

@@ -19,7 +19,8 @@
 import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import React from 'react';
-import ReactTable, { Filter } from 'react-table';
+import type { Filter } from 'react-table';
+import ReactTable from 'react-table';
 
 import {
   ACTION_COLUMN_ID,
@@ -33,7 +34,7 @@ import {
   ViewControlBar,
 } from '../../components';
 import { AsyncActionDialog, InputCatalogDialog } from '../../dialogs/';
-import { InputCatalog } from '../../druid-models';
+import type { CatalogEntry, ExternalTableSpec } from '../../druid-models';
 import { STANDARD_TABLE_PAGE_SIZE, STANDARD_TABLE_PAGE_SIZE_OPTIONS } from '../../react-table';
 import { Api } from '../../singletons';
 import {
@@ -44,7 +45,7 @@ import {
   QueryManager,
   QueryState,
 } from '../../utils';
-import { BasicAction } from '../../utils/basic-action';
+import type { BasicAction } from '../../utils/basic-action';
 
 import './inputs-view.scss';
 
@@ -59,13 +60,13 @@ const tableColumns: string[] = [
 ];
 
 interface InputCatalogDialogOpenOn {
-  readonly inputCatalog?: InputCatalog;
+  readonly inputCatalog?: CatalogEntry<ExternalTableSpec>;
 }
 
 export interface InputsViewProps {}
 
 export interface InputsViewState {
-  inputCatalogsState: QueryState<InputCatalog[]>;
+  inputCatalogsState: QueryState<CatalogEntry<ExternalTableSpec>[]>;
   inputFilter: Filter[];
 
   inputCatalogDialogOpenOn?: InputCatalogDialogOpenOn;
@@ -77,7 +78,7 @@ export interface InputsViewState {
 }
 
 export class InputsView extends React.PureComponent<InputsViewProps, InputsViewState> {
-  private readonly inputsQueryManager: QueryManager<null, InputCatalog[]>;
+  private readonly inputsQueryManager: QueryManager<null, CatalogEntry<ExternalTableSpec>[]>;
 
   constructor(props: InputsViewProps) {
     super(props);
@@ -93,8 +94,11 @@ export class InputsView extends React.PureComponent<InputsViewProps, InputsViewS
 
     this.inputsQueryManager = new QueryManager({
       processQuery: async () => {
-        return (await Api.instance.get<InputCatalog[]>('/druid/coordinator/v1/catalog/sync/input'))
-          .data;
+        return (
+          await Api.instance.get<CatalogEntry<ExternalTableSpec>[]>(
+            '/druid/coordinator/v1/catalog/schemas/ext/tables?format=metadata',
+          )
+        ).data;
       },
       onStateChange: inputCatalogsState => {
         this.setState({
@@ -163,7 +167,7 @@ export class InputsView extends React.PureComponent<InputsViewProps, InputsViewS
 
     return (
       <InputCatalogDialog
-        inputCatalog={inputCatalogDialogOpenOn.inputCatalog}
+        existingCatalogEntry={inputCatalogDialogOpenOn.inputCatalog}
         onClose={() => this.setState({ inputCatalogDialogOpenOn: undefined })}
         onChange={() => {
           this.inputsQueryManager.rerunLastQuery();
@@ -223,7 +227,7 @@ export class InputsView extends React.PureComponent<InputsViewProps, InputsViewS
             Header: 'Input name',
             show: visibleColumns.shown('Lookup name'),
             id: 'input_name',
-            accessor: 'name',
+            accessor: d => deepGet(d, 'id.name'),
             filterable: true,
             width: 200,
             Cell: ({ value, original }) => (
@@ -245,7 +249,7 @@ export class InputsView extends React.PureComponent<InputsViewProps, InputsViewS
             Header: 'Source',
             show: visibleColumns.shown('Lookup tier'),
             id: 'source',
-            accessor: d => deepGet(d, 'spec.properties.source'),
+            accessor: d => deepGet(d, 'spec.properties.source.type'),
             filterable: true,
             width: 400,
             Cell: this.renderFilterableCell('source'),
@@ -254,7 +258,7 @@ export class InputsView extends React.PureComponent<InputsViewProps, InputsViewS
             Header: 'Format',
             show: visibleColumns.shown('Lookup tier'),
             id: 'format',
-            accessor: d => deepGet(d, 'spec.properties.format'),
+            accessor: d => deepGet(d, 'spec.properties.format.type'),
             filterable: true,
             width: 400,
             Cell: this.renderFilterableCell('format'),
