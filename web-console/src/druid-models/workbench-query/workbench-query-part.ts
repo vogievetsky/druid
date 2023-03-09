@@ -17,7 +17,7 @@
  */
 
 import type { SqlValues, SqlWithQuery } from 'druid-query-toolkit';
-import { SqlExpression, SqlQuery, T } from 'druid-query-toolkit';
+import { SqlExpression, SqlFunction, SqlQuery, T } from 'druid-query-toolkit';
 import Hjson from 'hjson';
 import * as JSONBig from 'json-bigint-native';
 
@@ -59,7 +59,7 @@ export class WorkbenchQueryPart {
   }
 
   static isTaskEngineNeeded(queryString: string): boolean {
-    return /EXTERN\s*\(|(?:INSERT|REPLACE)\s+INTO/im.test(queryString);
+    return new WorkbenchQueryPart({ id: 'x', queryString }).isTaskEngineNeeded();
   }
 
   static getIngestDatasourceFromQueryFragment(queryFragment: string): string | undefined {
@@ -219,7 +219,21 @@ export class WorkbenchQueryPart {
   }
 
   public isTaskEngineNeeded(): boolean {
-    return WorkbenchQueryPart.isTaskEngineNeeded(this.queryString);
+    const { queryString, parsedQuery } = this;
+    if (parsedQuery) {
+      if (parsedQuery.getIngestTable()) return true;
+      let tableFunction: SqlFunction | undefined;
+      parsedQuery.walk(ex => {
+        if (ex instanceof SqlFunction && ex.getEffectiveFunctionName() === 'TABLE') {
+          tableFunction = ex;
+          return;
+        }
+        return ex;
+      });
+      return Boolean(tableFunction);
+    } else {
+      return /TABLE\s*\(|(?:INSERT|REPLACE)\s+INTO/im.test(queryString);
+    }
   }
 
   public extractCteHelpers(): WorkbenchQueryPart[] | undefined {

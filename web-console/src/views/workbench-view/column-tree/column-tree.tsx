@@ -198,20 +198,14 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                     <Deferred
                       content={() => {
                         const parsedQuery = props.getParsedQuery();
-                        const tableRef = T(tableName);
+                        const tableRef = SqlTable.create(
+                          tableName,
+                          schemaName === 'druid' ? undefined : schemaName,
+                        );
                         const prettyTableRef = prettyPrintSql(tableRef);
                         const countExpression = getCountExpression(
                           metadata.map(child => child.COLUMN_NAME),
                         );
-
-                        const getQueryOnTable = () => {
-                          return SqlQuery.create(
-                            SqlTable.create(
-                              tableName,
-                              schemaName === 'druid' ? undefined : schemaName,
-                            ),
-                          );
-                        };
 
                         const getWhere = (defaultToAllTime = false) => {
                           if (parsedQuery && parsedQuery.getFirstTableName() === tableName) {
@@ -227,10 +221,10 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                           <Menu>
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT ...columns... FROM ${tableName}`}
+                              text={`SELECT ...columns... FROM ${tableRef}`}
                               onClick={() => {
                                 onQueryChange(
-                                  getQueryOnTable()
+                                  SqlQuery.create(tableRef)
                                     .changeSelectExpressions(
                                       metadata
                                         .map(child => child.COLUMN_NAME)
@@ -243,20 +237,20 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT * FROM ${tableName}`}
+                              text={`SELECT * FROM ${tableRef}`}
                               onClick={() => {
                                 onQueryChange(
-                                  getQueryOnTable().changeWhereExpression(getWhere()),
+                                  SqlQuery.create(tableRef).changeWhereExpression(getWhere()),
                                   true,
                                 );
                               }}
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT ${countExpression} FROM ${tableName}`}
+                              text={`SELECT ${countExpression} FROM ${tableRef}`}
                               onClick={() => {
                                 onQueryChange(
-                                  getQueryOnTable()
+                                  SqlQuery.create(tableRef)
                                     .changeSelect(0, countExpression)
                                     .changeGroupByExpressions([])
                                     .changeWhereExpression(getWhere(true)),
@@ -266,10 +260,10 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT MIN(__time), MAX(__time) FROM ${tableName}`}
+                              text={`SELECT MIN(__time), MAX(__time) FROM ${tableRef}`}
                               onClick={() => {
                                 onQueryChange(
-                                  getQueryOnTable()
+                                  SqlQuery.create(tableRef)
                                     .changeSelectExpressions([
                                       F.min(C('__time')).as('min_time'),
                                       F.max(C('__time')).as('max_time'),
