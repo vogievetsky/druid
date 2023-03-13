@@ -201,7 +201,7 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                         const tableRef = SqlTable.create(
                           tableName,
                           schemaName === 'druid' ? undefined : schemaName,
-                        );
+                        ).applyIf(schemaName === 'ext', e => F('TABLE', e));
                         const prettyTableRef = prettyPrintSql(tableRef);
                         const countExpression = getCountExpression(
                           metadata.map(child => child.COLUMN_NAME),
@@ -237,7 +237,7 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT * FROM ${tableRef}`}
+                              text={`SELECT * FROM ${prettyTableRef}`}
                               onClick={() => {
                                 onQueryChange(
                                   SqlQuery.create(tableRef).changeWhereExpression(getWhere()),
@@ -247,7 +247,7 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT ${countExpression} FROM ${tableRef}`}
+                              text={`SELECT ${countExpression} FROM ${prettyTableRef}`}
                               onClick={() => {
                                 onQueryChange(
                                   SqlQuery.create(tableRef)
@@ -260,7 +260,7 @@ export class ColumnTree extends React.PureComponent<ColumnTreeProps, ColumnTreeS
                             />
                             <MenuItem
                               icon={IconNames.FULLSCREEN}
-                              text={`SELECT MIN(__time), MAX(__time) FROM ${tableRef}`}
+                              text={`SELECT MIN(__time), MAX(__time) FROM ${prettyTableRef}`}
                               onClick={() => {
                                 onQueryChange(
                                   SqlQuery.create(tableRef)
