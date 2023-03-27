@@ -59,6 +59,54 @@ export const InputCatalogDialog = React.memo(function InputCatalogDialog(
     setCurrentSpec({ ...currentSpec, columns });
   }
 
+  async function handleDelete() {
+    if (!existingCatalogEntry) return;
+    try {
+      await Api.instance.delete(
+        `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(
+          existingCatalogEntry.id.name,
+        )}`,
+      );
+    } catch (e) {
+      AppToaster.show({
+        message: getDruidErrorMessage(e),
+        intent: Intent.DANGER,
+      });
+      return;
+    }
+    onChange();
+    onClose();
+  }
+
+  async function handleAction() {
+    try {
+      if (existingCatalogEntry) {
+        // Update
+        const updateTime = existingCatalogEntry.updateTime;
+        await Api.instance.post(
+          `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}${
+            updateTime ? `?version=${updateTime}` : ''
+          }`,
+          currentSpec,
+        );
+      } else {
+        // Create
+        await Api.instance.post(
+          `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}`,
+          currentSpec,
+        );
+      }
+    } catch (e) {
+      AppToaster.show({
+        message: getDruidErrorMessage(e),
+        intent: Intent.DANGER,
+      });
+      return;
+    }
+    onChange();
+    onClose();
+  }
+
   const isNew = !existingCatalogEntry;
   return (
     <Dialog
@@ -102,7 +150,7 @@ export const InputCatalogDialog = React.memo(function InputCatalogDialog(
                     columns.concat([
                       {
                         name: '',
-                        sqlType: 'VARCHAR',
+                        dataType: 'STRING',
                       },
                     ]),
                   )
@@ -126,62 +174,14 @@ export const InputCatalogDialog = React.memo(function InputCatalogDialog(
       <div className={Classes.DIALOG_FOOTER}>
         <div className={Classes.DIALOG_FOOTER_ACTIONS}>
           {existingCatalogEntry && (
-            <Button
-              text="Delete"
-              intent={Intent.DANGER}
-              onClick={async () => {
-                if (!existingCatalogEntry) return;
-                try {
-                  await Api.instance.delete(
-                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(
-                      existingCatalogEntry.id.name,
-                    )}`,
-                  );
-                } catch (e) {
-                  AppToaster.show({
-                    message: getDruidErrorMessage(e),
-                    intent: Intent.DANGER,
-                  });
-                  return;
-                }
-                onChange();
-                onClose();
-              }}
-            />
+            <Button text="Delete" intent={Intent.DANGER} onClick={() => void handleDelete()} />
           )}
           <Button text="Close" onClick={onClose} />
           <Button
             text={existingCatalogEntry ? 'Update' : 'Create'}
             intent={Intent.PRIMARY}
             disabled={disableSubmit}
-            onClick={async () => {
-              try {
-                if (existingCatalogEntry) {
-                  // Update
-                  const updateTime = existingCatalogEntry.updateTime;
-                  await Api.instance.post(
-                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}${
-                      updateTime ? `?version=${updateTime}` : ''
-                    }`,
-                    currentSpec,
-                  );
-                } else {
-                  // Create
-                  await Api.instance.post(
-                    `/druid/coordinator/v1/catalog/schemas/ext/tables/${Api.encodePath(newName)}`,
-                    currentSpec,
-                  );
-                }
-              } catch (e) {
-                AppToaster.show({
-                  message: getDruidErrorMessage(e),
-                  intent: Intent.DANGER,
-                });
-                return;
-              }
-              onChange();
-              onClose();
-            }}
+            onClick={() => void handleAction()}
           />
         </div>
       </div>

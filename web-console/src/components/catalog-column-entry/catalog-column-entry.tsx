@@ -23,7 +23,7 @@ import React from 'react';
 import type { CatalogColumn } from '../../druid-models';
 import { deepSet } from '../../utils';
 
-const DRUID_SQL_TYPES: string[] = ['VARCHAR', 'BIGINT', 'FLOAT', 'DOUBLE'];
+const DRUID_TYPES: string[] = ['STRING', 'LONG', 'FLOAT', 'DOUBLE'];
 
 export interface CatalogColumnEntryProps {
   column: CatalogColumn;
@@ -46,15 +46,15 @@ export const CatalogColumnEntry = function CatalogColumnEntry(props: CatalogColu
         autoFocus={!column.name}
       />
       {column.name === '__time' ? (
-        <HTMLSelect value="TIMESTAMP" disabled>
-          <option value="TIMESTAMP">TIMESTAMP</option>
+        <HTMLSelect value="LONG" disabled>
+          <option value="LONG">LONG</option>
         </HTMLSelect>
       ) : (
         <HTMLSelect
-          value={column.sqlType}
-          onChange={e => onChange(deepSet(column, 'sqlType', e.target.value))}
+          value={column.dataType}
+          onChange={e => onChange(deepSet(column, 'dataType', e.target.value))}
         >
-          {DRUID_SQL_TYPES.map(v => (
+          {DRUID_TYPES.map(v => (
             <option key={v} value={v}>
               {v}
             </option>

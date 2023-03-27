@@ -60,7 +60,7 @@ export interface ExternalTableSpec {
 
 export interface CatalogColumn {
   name: string;
-  sqlType: string;
+  dataType: string;
   properties?: {
     description?: string;
   };

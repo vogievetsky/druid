@@ -52,7 +52,7 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
       columns: [
         {
           name: '__time',
-          sqlType: 'TIMESTAMP',
+          dataType: 'LONG',
           properties: {
             description: 'The primary time column',
           },
@@ -72,6 +72,54 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
 
   function changeColumns(columns: CatalogColumn[]): void {
     setCurrentSpec({ ...currentSpec, columns });
+  }
+
+  async function handleDelete() {
+    if (!existingCatalogEntry) return;
+    try {
+      await Api.instance.delete(
+        `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(
+          existingCatalogEntry.id.name,
+        )}`,
+      );
+    } catch (e) {
+      AppToaster.show({
+        message: getDruidErrorMessage(e),
+        intent: Intent.DANGER,
+      });
+      return;
+    }
+    onChange();
+    onClose();
+  }
+
+  async function handleAction() {
+    try {
+      if (existingCatalogEntry) {
+        // Update
+        const updateTime = existingCatalogEntry.updateTime;
+        await Api.instance.post(
+          `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(newName)}${
+            updateTime ? `?version=${updateTime}` : ''
+          }`,
+          currentSpec,
+        );
+      } else {
+        // Create
+        await Api.instance.post(
+          `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(newName)}`,
+          currentSpec,
+        );
+      }
+    } catch (e) {
+      AppToaster.show({
+        message: getDruidErrorMessage(e),
+        intent: Intent.DANGER,
+      });
+      return;
+    }
+    onChange();
+    onClose();
   }
 
   const isNew = !existingCatalogEntry && !initDatasource;
@@ -117,7 +165,7 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
                     columns.concat([
                       {
                         name: '',
-                        sqlType: 'VARCHAR',
+                        dataType: 'STRING',
                       },
                     ]),
                   )
@@ -141,62 +189,14 @@ export const DatasourceCatalogDialog = React.memo(function DatasourceCatalogDial
       <div className={Classes.DIALOG_FOOTER}>
         <div className={Classes.DIALOG_FOOTER_ACTIONS}>
           {Boolean(existingCatalogEntry) && (
-            <Button
-              text="Delete"
-              intent={Intent.DANGER}
-              onClick={async () => {
-                if (!existingCatalogEntry) return;
-                try {
-                  await Api.instance.delete(
-                    `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(
-                      existingCatalogEntry.id.name,
-                    )}`,
-                  );
-                } catch (e) {
-                  AppToaster.show({
-                    message: getDruidErrorMessage(e),
-                    intent: Intent.DANGER,
-                  });
-                  return;
-                }
-                onChange();
-                onClose();
-              }}
-            />
+            <Button text="Delete" intent={Intent.DANGER} onClick={() => void handleDelete()} />
           )}
           <Button text="Close" onClick={onClose} />
           <Button
             text={existingCatalogEntry ? 'Update' : 'Create'}
             intent={Intent.PRIMARY}
             disabled={disableSubmit}
-            onClick={async () => {
-              try {
-                if (existingCatalogEntry) {
-                  // Update
-                  const updateTime = existingCatalogEntry.updateTime;
-                  await Api.instance.post(
-                    `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(newName)}${
-                      updateTime ? `?version=${updateTime}` : ''
-                    }`,
-                    currentSpec,
-                  );
-                } else {
-                  // Create
-                  await Api.instance.post(
-                    `/druid/coordinator/v1/catalog/schemas/druid/tables/${Api.encodePath(newName)}`,
-                    currentSpec,
-                  );
-                }
-              } catch (e) {
-                AppToaster.show({
-                  message: getDruidErrorMessage(e),
-                  intent: Intent.DANGER,
-                });
-                return;
-              }
-              onChange();
-              onClose();
-            }}
+            onClick={() => void handleAction()}
           />
         </div>
       </div>
