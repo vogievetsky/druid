@@ -626,6 +626,10 @@ export class WorkbenchQuery {
       apiQuery.context.groupByEnableMultiValueUnnesting ??= !ingestQuery;
     }
 
+    if (engine === 'sql-async') {
+      apiQuery.context.executionMode ??= 'async';
+    }
+
     return {
       engine,
       query: apiQuery,

@@ -22,6 +22,7 @@ import type { QueryResult } from 'druid-query-toolkit';
 import type { Execution } from '../../druid-models';
 import { IntermediateQueryState } from '../../utils';
 
+import { updateExecutionWithAsyncIfNeeded } from './sql-async-execution';
 import {
   updateExecutionWithDatasourceLoadedIfNeeded,
   updateExecutionWithTaskIfNeeded,
@@ -47,6 +48,10 @@ export async function executionBackgroundStatusCheck(
   cancelToken: CancelToken,
 ): Promise<Execution | IntermediateQueryState<Execution>> {
   switch (execution.engine) {
+    case 'sql-async':
+      execution = await updateExecutionWithAsyncIfNeeded(execution, cancelToken);
+      break;
+
     case 'sql-msq-task':
       execution = await updateExecutionWithTaskIfNeeded(execution, cancelToken);
       execution = await updateExecutionWithDatasourceLoadedIfNeeded(execution, cancelToken);

@@ -258,7 +258,7 @@ export class ConsoleApplication extends React.PureComponent<
       queryEngines.push('sql-native');
     }
     if (capabilities.hasMultiStageQuery()) {
-      queryEngines.push('sql-msq-task');
+      queryEngines.push('sql-msq-task', 'sql-async');
     }
 
     return this.wrapInViewContainer(

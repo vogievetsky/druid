@@ -188,14 +188,13 @@ export class Execution {
   }
 
   static normalizeAsyncStatus(
-    state: 'INITIALIZED' | 'RUNNING' | 'COMPLETE' | 'FAILED' | 'UNDETERMINED',
+    state: 'ACCEPTED' | 'RUNNING' | 'FINISHED' | 'FAILED',
   ): ExecutionStatus {
     switch (state) {
-      case 'COMPLETE':
+      case 'FINISHED':
         return 'SUCCESS';
 
-      case 'INITIALIZED':
-      case 'UNDETERMINED':
+      case 'ACCEPTED':
         return 'RUNNING';
 
       default:
@@ -357,6 +356,54 @@ export class Execution {
     }
 
     return res;
+  }
+
+  static fromAsyncStatus(
+    asyncSubmitResult:
+      | {
+          queryId: string;
+          state: string;
+          createdAt: string;
+          durationInMs: number;
+          schema: { name: string; type: string }[];
+          resultSetInformation?: {
+            sampleRecords: any[][];
+            totalRows: number;
+            header: boolean;
+          };
+        }
+      | {
+          error: string;
+          errorMessage: string;
+          errorClass: string;
+        },
+    sqlQuery?: string,
+    queryContext?: QueryContext,
+  ): Execution {
+    let result: QueryResult | undefined;
+    if ('schema' in asyncSubmitResult && asyncSubmitResult.resultSetInformation) {
+      const { schema, resultSetInformation } = asyncSubmitResult;
+      result = new QueryResult({
+        header: schema.map(
+          s => new Column({ name: s.name, nativeType: undefined, sqlType: s.type }),
+        ),
+        rows: resultSetInformation.sampleRecords,
+      }).inflateDatesFromSqlTypes();
+    }
+
+    return new Execution({
+      engine: 'sql-async',
+      id: 'queryId' in asyncSubmitResult ? asyncSubmitResult.queryId : 'x',
+      status:
+        'state' in asyncSubmitResult
+          ? Execution.normalizeAsyncStatus(asyncSubmitResult.state as any)
+          : 'FAILED',
+      sqlQuery,
+      queryContext,
+      error: 'error' in asyncSubmitResult ? (asyncSubmitResult as any) : undefined,
+      destination: undefined,
+      result,
+    });
   }
 
   static fromResult(engine: DruidEngine, result: QueryResult): Execution {

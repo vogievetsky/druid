@@ -36,6 +36,10 @@ import {
   reattachTaskExecution,
   submitTaskQuery,
 } from '../../../helpers';
+import {
+  reattachAsyncExecution,
+  submitAsyncQuery,
+} from '../../../helpers/execution/sql-async-execution';
 import { usePermanentCallback, useQueryManager } from '../../../hooks';
 import { Api, AppToaster } from '../../../singletons';
 import { ExecutionStateCache } from '../../../singletons/execution-state-cache';
@@ -161,6 +165,17 @@ export const QueryTab = React.memo(function QueryTab(props: QueryTabProps) {
         const { engine, query, sqlPrefixLines, cancelQueryId } = q.getApiQuery();
 
         switch (engine) {
+          case 'sql-async':
+            return await submitAsyncQuery({
+              query,
+              prefixLines: sqlPrefixLines,
+              cancelToken,
+              preserveOnTermination: true,
+              onSubmitted: id => {
+                onQueryChange(props.query.changeLastExecution({ engine, id }));
+              },
+            });
+
           case 'sql-msq-task':
             return await submitTaskQuery({
               query,
@@ -223,6 +238,13 @@ export const QueryTab = React.memo(function QueryTab(props: QueryTabProps) {
         return Execution.fromResult('sql-native', result);
       } else {
         switch (q.engine) {
+          case 'sql-async':
+            return await reattachAsyncExecution({
+              id: q.id,
+              cancelToken,
+              preserveOnTermination: true,
+            });
+
           case 'sql-msq-task':
             return await reattachTaskExecution({
               id: q.id,

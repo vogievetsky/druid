@@ -138,6 +138,14 @@ export const HelperQuery = React.memo(function HelperQuery(props: HelperQueryPro
         const { engine, query, sqlPrefixLines, cancelQueryId } = q.getApiQuery();
 
         switch (engine) {
+          case 'sql-async': {
+            const ret = (
+              await Api.instance.post(`/druid/v2/sql/statements`, query, { cancelToken })
+            ).data;
+            console.log(ret);
+            throw new Error('xxx');
+          }
+
           case 'sql-msq-task':
             return await submitTaskQuery({
               query,
