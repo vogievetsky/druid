@@ -15,32 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Intent } from '@blueprintjs/core';
-import copy from 'copy-to-clipboard';
+
+import { Button, Classes, Dialog } from '@blueprintjs/core';
 import React from 'react';
 
-import { AppToaster } from '../../singletons';
+import { FlexibleQueryInput } from '../flexible-query-input/flexible-query-input';
 
-export interface ClickToCopyProps {
-  text: string;
+import './dart-details-dialog.scss';
+
+export interface DartDetailsDialogProps {
+  sql: string;
+  onClose(): void;
 }
 
-export const ClickToCopy = React.memo(function ClickToCopy(props: ClickToCopyProps) {
-  const { text } = props;
+export const DartDetailsDialog = React.memo(function DartDetailsDialog(
+  props: DartDetailsDialogProps,
+) {
+  const { sql, onClose } = props;
 
   return (
-    <a
-      className="click-to-copy"
-      data-tooltip={`Click to copy:\n${text}`}
-      onClick={() => {
-        copy(text, { format: 'text/plain' });
-        AppToaster.show({
-          message: `'${text}' copied to clipboard`,
-          intent: Intent.SUCCESS,
-        });
-      }}
-    >
-      {text}
-    </a>
+    <Dialog className="dart-details-dialog" isOpen onClose={onClose} title="Dart SQL">
+      <div className={Classes.DIALOG_BODY}>
+        <FlexibleQueryInput queryString={sql} leaveBackground />
+      </div>
+      <div className={Classes.DIALOG_FOOTER}>
+        <div className={Classes.DIALOG_FOOTER_ACTIONS}>
+          <Button text="Close" onClick={onClose} />
+        </div>
+      </div>
+    </Dialog>
   );
 });
