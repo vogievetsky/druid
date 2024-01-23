@@ -319,6 +319,10 @@ export function formatDurationWithMs(ms: NumberLike): string {
   );
 }
 
+export function formatDurationWithMsIfNeeded(ms: NumberLike): string {
+  return Number(ms) < 1000 ? formatDurationWithMs(ms) : formatDuration(ms);
+}
+
 export function formatDurationHybrid(ms: NumberLike): string {
   const n = Number(ms);
   if (n < 600000) {

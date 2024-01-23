@@ -100,6 +100,7 @@ const SQL_JOIN_ALGORITHM_LABEL: Record<SqlJoinAlgorithm, string> = {
 };
 
 const DEFAULT_ENGINES_LABEL_FN = (engine: DruidEngine | undefined) => {
+  if (!engine) return { text: 'Auto' };
   switch (engine) {
     case 'native':
       return { text: 'Native' };
@@ -110,8 +111,11 @@ const DEFAULT_ENGINES_LABEL_FN = (engine: DruidEngine | undefined) => {
     case 'sql-msq-task':
       return { text: 'SQL MSQ-task', label: 'multi-stage-query' };
 
+    case 'msq-viper':
+      return { text: 'SQL MSQ-interactive', label: 'multi-stage-query' };
+
     default:
-      return { text: 'Auto' };
+      return { text: engine };
   }
 };
 

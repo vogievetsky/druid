@@ -441,6 +441,13 @@ export class Execution {
     };
   }
 
+  public changeEngine(engine: DruidEngine): Execution {
+    return new Execution({
+      ...this.valueOf(),
+      engine,
+    });
+  }
+
   public changeSqlQuery(sqlQuery: string, queryContext?: QueryContext): Execution {
     const value = this.valueOf();
 

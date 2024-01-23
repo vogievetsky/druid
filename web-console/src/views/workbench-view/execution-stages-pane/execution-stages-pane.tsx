@@ -20,6 +20,7 @@ import { Button, Icon, Intent, Tooltip } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
 import * as JSONBig from 'json-bigint-native';
+import type { JSX } from 'react';
 import React from 'react';
 import type { Column } from 'react-table';
 import ReactTable from 'react-table';
@@ -37,9 +38,14 @@ import type {
   StageDefinition,
   StageInput,
 } from '../../../druid-models';
-import { formatClusterBy, Stages, summarizeInputSource } from '../../../druid-models';
+import {
+  CPUS_COUNTER_FIELDS,
+  cpusCounterFieldTitle,
+  formatClusterBy,
+  Stages,
+  summarizeInputSource,
+} from '../../../druid-models';
 import { DEFAULT_TABLE_CLASS_NAME } from '../../../react-table';
-import type { NumberLike } from '../../../utils';
 import {
   assemble,
   capitalizeFirst,
@@ -47,12 +53,11 @@ import {
   deepGet,
   filterMap,
   formatBytesCompact,
-  formatDuration,
   formatDurationWithMs,
+  formatDurationWithMsIfNeeded,
   formatInteger,
   formatPercent,
   oneOf,
-  prettyFormatIsoDate,
   twoLines,
 } from '../../../utils';
 
@@ -81,8 +86,6 @@ function formatBreakdown(breakdown: Record<string, number>): string {
 const formatRows = formatInteger;
 const formatRowRate = formatInteger;
 const formatFrames = formatInteger;
-const formatDurationDynamic = (n: NumberLike) =>
-  n < 1000 ? formatDurationWithMs(n) : formatDuration(n);
 
 const formatFileOfTotal = (files: number, totalFiles: number) =>
   `(${formatInteger(files)} / ${formatInteger(totalFiles)})`;
@@ -156,6 +159,8 @@ export const ExecutionStagesPane = React.memo(function ExecutionStagesPane(
   const { execution, onErrorClick, onWarningClick, goToTask } = props;
   const stages = execution.stages || new Stages([]);
   const error = execution.error;
+  const executionStartTime = execution.startTime;
+  const executionDuration = execution.duration;
 
   const rowRateValues = stages.stages.map(s =>
     formatRowRate(stages.getRateFromStage(s, 'rows') || 0),
@@ -246,6 +251,38 @@ export const ExecutionStagesPane = React.memo(function ExecutionStagesPane(
               );
             },
           } as Column<SimpleWideCounter>,
+          {
+            Header: twoLines(
+              'CPU utilization',
+              <i>
+                <span className="cpu-label">counter</span>
+                <span className="cpu-counter">CPU time</span>
+                <span className="cpu-counter">wall time</span>
+              </i>,
+            ),
+            id: 'cpu',
+            accessor: d => d.cpu?.main?.cpu || 0,
+            className: 'padded',
+            width: 300,
+            Cell({ original }) {
+              const cpuTotals = original.cpu || {};
+              return (
+                <>
+                  {filterMap(CPUS_COUNTER_FIELDS, k => {
+                    const v = cpuTotals[k];
+                    if (!v) return;
+                    return (
+                      <div key={k}>
+                        <span className="cpu-label">{cpusCounterFieldTitle(k)}</span>
+                        <span className="cpu-counter">{formatDurationWithMs(v.cpu / 1e6)}</span>
+                        <span className="cpu-counter">{formatDurationWithMs(v.wall / 1e6)}</span>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            },
+          } as Column<SimpleWideCounter>,
         ].concat(
           counterNames.map((counterName, i) => {
             const isInput = counterName.startsWith('input');
@@ -261,7 +298,7 @@ export const ExecutionStagesPane = React.memo(function ExecutionStagesPane(
               id: counterName,
               accessor: d => d[counterName]!.rows,
               className: 'padded',
-              width: 180,
+              width: 160,
               Cell({ value, original }) {
                 const c = (original as SimpleWideCounter)[counterName]!;
                 return (
@@ -544,7 +581,7 @@ ${title} uncompressed size: ${formatBytesCompact(
                   <span className="stage">{`Stage${stage.stageNumber}`}</span>
                 </div>
                 <div>{stage.definition.processor.type}</div>
-                {stage.sort && <div className="sort-marker">(with sort)</div>}
+                {stage.sort && <div className="detail-line">(with sort)</div>}
                 {(myError || warnings > 0) && (
                   <div className="error-warning">
                     {myError && (
@@ -678,26 +715,72 @@ ${title} uncompressed size: ${formatBytesCompact(
           },
         },
         {
-          Header: 'Phase',
-          id: 'phase',
-          accessor: row => (row.phase ? capitalizeFirst(row.phase.replace(/_/g, ' ')) : ''),
-          className: 'padded',
-          width: 130,
-        },
-        {
           Header: 'Timing',
           id: 'timing',
           accessor: row => row.startTime,
-          className: 'padded',
           width: 170,
           Cell({ value, original }) {
-            const duration: number | undefined = original.duration;
+            const { duration, phase } = original;
             if (!value) return null;
+
+            const sinceQueryStart =
+              new Date(value).valueOf() - (executionStartTime?.valueOf() || 0);
+
             return (
-              <div title={value + (duration ? `/${formatDurationWithMs(duration)}` : '')}>
-                <div>{prettyFormatIsoDate(value)}</div>
-                <div>{duration ? formatDurationDynamic(duration) : ''}</div>
+              <div
+                className="timing-value"
+                title={assemble(
+                  `Start: T+${formatDurationWithMs(sinceQueryStart)} (${value})`,
+                  duration ? `Duration: ${formatDurationWithMs(duration)}` : undefined,
+                ).join('\n')}
+              >
+                {executionDuration && executionDuration > 0 && (
+                  <div
+                    className="timing-bar"
+                    style={{
+                      left: `${(sinceQueryStart / executionDuration) * 100}%`,
+                      width: `max(${(duration / executionDuration) * 100}%, 1px)`,
+                    }}
+                  />
+                )}
+                <div>{`Start: T+${formatDurationWithMsIfNeeded(sinceQueryStart)}`}</div>
+                <div>Duration: {duration ? formatDurationWithMsIfNeeded(duration) : ''}</div>
+                {phase && (
+                  <div className="detail-line">{capitalizeFirst(phase.replace(/_/g, ' '))}</div>
+                )}
               </div>
+            );
+          },
+        },
+        {
+          Header: twoLines(
+            'CPU utilization',
+            <i>
+              <span className="cpu-label">counter</span>
+              <span className="cpu-counter">CPU time</span>
+              <span className="cpu-counter">wall time</span>
+            </i>,
+          ),
+          id: 'cpu',
+          accessor: () => null,
+          className: 'padded',
+          width: 300,
+          Cell({ original }) {
+            const cpuTotals = stages.getCpuTotalsForStage(original);
+            return (
+              <>
+                {filterMap(CPUS_COUNTER_FIELDS, k => {
+                  const v = cpuTotals[k];
+                  if (!v) return;
+                  return (
+                    <div key={k}>
+                      <span className="cpu-label">{cpusCounterFieldTitle(k)}</span>
+                      <span className="cpu-counter">{formatDurationWithMs(v.cpu / 1e6)}</span>
+                      <span className="cpu-counter">{formatDurationWithMs(v.wall / 1e6)}</span>
+                    </div>
+                  );
+                })}
+              </>
             );
           },
         },
@@ -712,29 +795,54 @@ ${title} uncompressed size: ${formatBytesCompact(
           accessor: 'partitionCount',
           className: 'padded',
           width: 75,
+          Cell({ value, original }) {
+            return (
+              <>
+                {typeof value === 'number' ? <div>{formatInteger(value)}</div> : undefined}
+                <div className="detail-line">{original.output}</div>
+              </>
+            );
+          },
         },
         {
-          Header: 'Cluster by',
-          id: 'clusterBy',
+          Header: 'Shuffle',
+          id: 'shuffle',
           className: 'padded',
           minWidth: 400,
-          accessor: row => formatClusterBy(deepGet(row, 'definition.shuffleSpec.clusterBy')),
+          accessor: 'shuffle',
           Cell({ value, original }) {
+            const lines: JSX.Element[] = [];
+
+            if (value) {
+              lines.push(<div key="s">{value}</div>);
+            }
+
             const clusterBy: ClusterBy | undefined = deepGet(
               original,
               'definition.shuffleSpec.clusterBy',
             );
-            if (!clusterBy) return null;
-            if (clusterBy.bucketByCount) {
-              return (
-                <>
-                  <div>{`Partition by: ${formatClusterBy(clusterBy, 'partition')}`}</div>
-                  <div>{`Cluster by: ${formatClusterBy(clusterBy, 'cluster')}`}</div>
-                </>
-              );
-            } else {
-              return <div title={value}>{value}</div>;
+            if (clusterBy) {
+              if (clusterBy.bucketByCount) {
+                lines.push(
+                  <div key="p" className="detail-line">{`Partition by: ${formatClusterBy(
+                    clusterBy,
+                    'partition',
+                  )}`}</div>,
+                  <div key="c" className="detail-line">{`Cluster by: ${formatClusterBy(
+                    clusterBy,
+                    'cluster',
+                  )}`}</div>,
+                );
+              } else {
+                lines.push(
+                  <div key="p" className="detail-line">
+                    {formatClusterBy(clusterBy)}
+                  </div>,
+                );
+              }
             }
+
+            return <>{lines}</>;
           },
         },
       ]}

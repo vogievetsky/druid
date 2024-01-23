@@ -27,6 +27,36 @@ const READING_INPUT_WITH_SHUFFLE_WEIGHT = 1 - SHUFFLE_WEIGHT;
 
 export type InOut = 'in' | 'out';
 
+function simpleSum(xs: number[]) {
+  return sum(xs);
+}
+function aggregateThings<T>(
+  things: T[],
+  aggregators: {
+    [Property in keyof T]: T[Property] | ((vs: T[Property][], ts: T[]) => T[Property]);
+  },
+): T {
+  return Object.fromEntries(
+    Object.entries(aggregators).map(([k, f]) => [
+      k,
+      typeof f === 'function'
+        ? f(
+            filterMap(things, t => (t as any)[k]),
+            things,
+          )
+        : f,
+    ]),
+  ) as any;
+}
+
+function filterToExistingKeys<T>(keys: (keyof T)[], ts: T[]): (keyof T)[] {
+  return keys.filter(k => ts.some(t => Object.hasOwn(t as any, k)));
+}
+
+function objectFromKeys<T>(keys: string[], value: T): Record<string, T> {
+  return Object.fromEntries(keys.map(k => [k, value]));
+}
+
 export type StageInput =
   | {
       type: 'stage';
@@ -63,6 +93,7 @@ export interface StageDefinition {
       targetSize?: number;
       partitions?: number;
       aggregate?: boolean;
+      limitHint?: number;
     };
     maxWorkerCount: number;
     shuffleCheckHasMultipleValues?: boolean;
@@ -113,6 +144,7 @@ export interface StageWorkerCounter {
   sortProgress?: SortProgressCounter;
   segmentGenerationProgress?: SegmentGenerationProgressCounter;
   warnings?: WarningCounter;
+  cpu?: CpusCounter;
 }
 
 export type ChannelCounterName = `input${number}` | 'output' | 'shuffle';
@@ -176,12 +208,79 @@ export interface WarningCounter {
   // More types of warnings might be added later
 }
 
+export type CpusCounterFields =
+  | 'main'
+  | 'collectKeyStatistics'
+  | 'mergeInput'
+  | 'hashPartitionOutput'
+  | 'mixOutput'
+  | 'sortOutput';
+
+export const CPUS_COUNTER_FIELDS: CpusCounterFields[] = [
+  'main',
+  'collectKeyStatistics',
+  'mergeInput',
+  'hashPartitionOutput',
+  'mixOutput',
+  'sortOutput',
+];
+
+export function cpusCounterFieldTitle(k: CpusCounterFields) {
+  switch (k) {
+    case 'main':
+      return 'Main';
+
+    case 'collectKeyStatistics':
+      return 'Collect key stats';
+
+    case 'mergeInput':
+      return 'Merge input';
+
+    case 'hashPartitionOutput':
+      return 'Hash partition out';
+
+    case 'mixOutput':
+      return 'Mix output';
+
+    case 'sortOutput':
+      return 'Sort output';
+
+    default:
+      return k;
+  }
+}
+
+export interface CpusCounter {
+  type: 'cpus';
+  main?: CpuCounter;
+  collectKeyStatistics?: CpuCounter;
+  mergeInput?: CpuCounter;
+  hashPartitionOutput?: CpuCounter;
+  mixOutput?: CpuCounter;
+  sortOutput?: CpuCounter;
+}
+
+export interface CpuCounter {
+  type: 'cpu';
+  cpu: number;
+  wall: number;
+}
+
+function sumCpuCounters(cs: CpuCounter[]): CpuCounter {
+  return aggregateThings(cs, {
+    type: 'cpu',
+    cpu: simpleSum,
+    wall: simpleSum,
+  });
+}
+
 export interface SimpleWideCounter {
   index: number;
   [k: `input${number}`]: Record<ChannelFields, number> | undefined;
   output?: Record<ChannelFields, number>;
   shuffle?: Record<ChannelFields, number>;
   segmentGenerationProgress?: SegmentGenerationProgressCounter;
+  cpu?: CpusCounter;
 }
 
 function zeroChannelFields(): Record<ChannelFields, number> {
@@ -395,6 +494,14 @@ export class Stages {
     );
   }
 
+  getCpuTotalsForStage(stage: StageDefinition): CpusCounter {
+    const cpusCounters = filterMap(this.getCountersForStage(stage), c => c.cpu);
+    return aggregateThings(cpusCounters, {
+      type: 'cpus',
+      ...objectFromKeys(filterToExistingKeys(CPUS_COUNTER_FIELDS, cpusCounters), sumCpuCounters),
+    });
+  }
+
   getTotalCounterForStage(
     stage: StageDefinition,
     counterName: CounterName,
@@ -478,6 +585,7 @@ export class Stages {
           : zeroChannelFields();
       }
       newWideCounter.segmentGenerationProgress = stageCounters.segmentGenerationProgress;
+      newWideCounter.cpu = stageCounters.cpu;
       return newWideCounter;
     });
   }

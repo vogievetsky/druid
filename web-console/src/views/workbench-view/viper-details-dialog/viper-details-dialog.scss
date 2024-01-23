@@ -16,29 +16,20 @@
  * limitations under the License.
  */
 
-import type { Execution } from '../druid-models';
+@import '../../../variables';
 
-export interface WorkbenchRunningPromise {
-  executionPromise: Promise<Execution>;
-  startTime: Date;
-}
-
-export class WorkbenchRunningPromises {
-  private static readonly promises = new Map<string, WorkbenchRunningPromise>();
-
-  static isWorkbenchRunningPromise(x: any): x is WorkbenchRunningPromise {
-    return Boolean(x.executionPromise);
+.viper-details-dialog {
+  &.#{$bp-ns}-dialog {
+    width: 95vw;
   }
 
-  static storePromise(id: string, promise: WorkbenchRunningPromise): void {
-    WorkbenchRunningPromises.promises.set(id, promise);
-  }
+  .#{$bp-ns}-dialog-body {
+    height: 70vh;
+    position: relative;
+    margin: 0;
 
-  static getPromise(id: string): WorkbenchRunningPromise | undefined {
-    return WorkbenchRunningPromises.promises.get(id);
-  }
-
-  static deletePromise(id: string): void {
-    WorkbenchRunningPromises.promises.delete(id);
+    .flexible-query-input {
+      height: 100%;
+    }
   }
 }

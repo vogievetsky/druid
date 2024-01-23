@@ -32,6 +32,7 @@ import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import React from 'react';
 
+import { MenuCheckbox } from '../../components';
 import { SpecDialog, StringInputDialog } from '../../dialogs';
 import type {
   CapacityInfo,
@@ -69,6 +70,7 @@ import {
 
 import { ColumnTree } from './column-tree/column-tree';
 import { ConnectExternalDataDialog } from './connect-external-data-dialog/connect-external-data-dialog';
+import { CurrentViperPanel } from './current-viper-panel/current-viper-panel';
 import { getDemoQueries } from './demo-queries';
 import { ExecutionDetailsDialog } from './execution-details-dialog/execution-details-dialog';
 import type { ExecutionDetailsTab } from './execution-details-pane/execution-details-pane';
@@ -148,6 +150,7 @@ export interface WorkbenchViewState {
   renamingTab?: TabEntry;
 
   showRecentQueryTaskPanel: boolean;
+  showCurrentViperPanel: boolean;
 }
 
 export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, WorkbenchViewState> {
@@ -164,6 +167,11 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
     const hasSqlTask = queryEngines.includes('sql-msq-task');
     const showRecentQueryTaskPanel = Boolean(
       hasSqlTask && localStorageGetJson(LocalStorageKeys.WORKBENCH_TASK_PANEL),
+    );
+
+    const showCurrentViperPanel = Boolean(
+      queryEngines.includes('msq-viper') &&
+        localStorageGetJson(LocalStorageKeys.WORKBENCH_VIPER_PANEL),
     );
 
     const tabEntries =
@@ -198,6 +206,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
       taskIdSubmitDialogOpen: false,
 
       showRecentQueryTaskPanel,
+      showCurrentViperPanel,
     };
   }
 
@@ -264,7 +273,12 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
     localStorageSetJson(LocalStorageKeys.WORKBENCH_TASK_PANEL, false);
   };
 
-  private readonly handleDetails = (id: string, initTab?: ExecutionDetailsTab) => {
+  private readonly handleCurrentViperPanelClose = () => {
+    this.setState({ showCurrentViperPanel: false });
+    localStorageSetJson(LocalStorageKeys.WORKBENCH_VIPER_PANEL, false);
+  };
+
+  private readonly handleDetailsWithId = (id: string, initTab?: ExecutionDetailsTab) => {
     this.setState({
       details: { id, initTab },
     });
@@ -273,6 +287,15 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
   private getInitWorkbenchQuery(): WorkbenchQuery {
     return WorkbenchQuery.blank().changeQueryContext(this.props.defaultQueryContext || {});
   }
+
+  private readonly handleDetailsWithExecution = (
+    execution: Execution,
+    initTab?: ExecutionDetailsTab,
+  ) => {
+    this.setState({
+      details: { id: execution.id, initExecution: execution, initTab },
+    });
+  };
 
   private getInitTab(): TabEntry {
     return {
@@ -644,7 +667,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
     if (!queryEngines.includes('sql-msq-task')) return;
     if (hideToolbar) return;
 
-    const { showRecentQueryTaskPanel } = this.state;
+    const { showRecentQueryTaskPanel, showCurrentViperPanel } = this.state;
     return (
       <ButtonGroup className="toolbar">
         <Button
@@ -657,17 +680,33 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
           }}
           minimal
         />
-        {!showRecentQueryTaskPanel && (
-          <Button
-            icon={IconNames.DRAWER_RIGHT}
-            minimal
-            title="Show recent query task panel"
-            onClick={() => {
-              this.setState({ showRecentQueryTaskPanel: true });
-              localStorageSetJson(LocalStorageKeys.WORKBENCH_TASK_PANEL, true);
-            }}
-          />
-        )}
+        <Popover
+          position="bottom-right"
+          content={
+            <Menu>
+              <MenuCheckbox
+                text="Recent query task panel"
+                checked={showRecentQueryTaskPanel}
+                onChange={() => {
+                  const n = !showRecentQueryTaskPanel;
+                  this.setState({ showRecentQueryTaskPanel: n });
+                  localStorageSetJson(LocalStorageKeys.WORKBENCH_TASK_PANEL, n);
+                }}
+              />
+              <MenuCheckbox
+                text="Current MSQ-interactive query panel"
+                checked={showCurrentViperPanel}
+                onChange={() => {
+                  const n = !showCurrentViperPanel;
+                  this.setState({ showCurrentViperPanel: n });
+                  localStorageSetJson(LocalStorageKeys.WORKBENCH_VIPER_PANEL, n);
+                }}
+              />
+            </Menu>
+          }
+        >
+          <Button icon={IconNames.DRAWER_RIGHT} minimal />
+        </Popover>
       </ButtonGroup>
     );
   }
@@ -713,7 +752,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
           columnMetadata={columnMetadataState.getSomeData()}
           onQueryChange={this.handleQueryChange}
           onQueryTab={this.handleNewTab}
-          onDetails={this.handleDetails}
+          onDetails={this.handleDetailsWithExecution}
           queryEngines={queryEngines}
           clusterCapacity={capabilities.getMaxTaskSlots()}
           goToTask={goToTask}
@@ -850,8 +889,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
   };
 
   render() {
-    const { queryEngines } = this.props;
-    const { columnMetadataState, showRecentQueryTaskPanel } = this.state;
+    const { columnMetadataState, showRecentQueryTaskPanel, showCurrentViperPanel } = this.state;
     const query = this.getCurrentQuery();
 
     let defaultSchema: string | undefined;
@@ -862,11 +900,12 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
       defaultTables = parsedQuery.getUsedTableNames();
     }
 
+    const showRightPanel = showRecentQueryTaskPanel || showCurrentViperPanel;
     return (
       <div
         className={classNames('workbench-view app-view', {
           'hide-column-tree': columnMetadataState.isError(),
-          'hide-work-history': !showRecentQueryTaskPanel,
+          'hide-right-panel': !showRightPanel,
         })}
       >
         {!columnMetadataState.isError() && (
@@ -882,13 +921,20 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
           />
         )}
         {this.renderCenterPanel()}
-        {showRecentQueryTaskPanel && queryEngines.includes('sql-msq-task') && (
-          <RecentQueryTaskPanel
-            onClose={this.handleRecentQueryTaskPanelClose}
-            onExecutionDetails={this.handleDetails}
-            onChangeQuery={this.handleQueryStringChange}
-            onNewTab={this.handleNewTab}
-          />
+        {showRightPanel && (
+          <div className="recent-panel">
+            {showRecentQueryTaskPanel && (
+              <RecentQueryTaskPanel
+                onClose={this.handleRecentQueryTaskPanelClose}
+                onExecutionDetails={this.handleDetailsWithId}
+                onChangeQuery={this.handleQueryStringChange}
+                onNewTab={this.handleNewTab}
+              />
+            )}
+            {showCurrentViperPanel && (
+              <CurrentViperPanel onClose={this.handleCurrentViperPanelClose} />
+            )}
+          </div>
         )}
         {this.renderExecutionDetailsDialog()}
         {this.renderExplainDialog()}
