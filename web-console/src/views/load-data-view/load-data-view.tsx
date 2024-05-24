@@ -866,6 +866,7 @@ export class LoadDataView extends React.PureComponent<LoadDataViewProps, LoadDat
               <>
                 {this.renderIngestionCard('kafka')}
                 {this.renderIngestionCard('kinesis')}
+                {this.renderIngestionCard('rabbit')}
                 {this.renderIngestionCard('azure-event-hubs')}
               </>
             )}
@@ -1037,6 +1038,7 @@ export class LoadDataView extends React.PureComponent<LoadDataViewProps, LoadDat
       case 'index_parallel:hdfs':
       case 'kafka':
       case 'kinesis':
+      case 'rabbit':
         return (
           <FormGroup>
             <Button

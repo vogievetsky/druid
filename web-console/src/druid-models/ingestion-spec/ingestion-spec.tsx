@@ -91,13 +91,14 @@ export function isEmptyIngestionSpec(spec: Partial<IngestionSpec>) {
   return Object.keys(spec).length === 0;
 }
 
-export type IngestionType = 'kafka' | 'kinesis' | 'index_parallel';
-const KNOWN_TYPES = ['kafka', 'kinesis', 'index_parallel'];
+export type IngestionType = 'kafka' | 'kinesis' | 'rabbit' | 'index_parallel';
+const KNOWN_TYPES = ['kafka', 'kinesis', 'rabbit', 'index_parallel'];
 
 // A combination of IngestionType and inputSourceType
 export type IngestionComboType =
   | 'kafka'
   | 'kinesis'
+  | 'rabbit'
   | 'index_parallel:http'
   | 'index_parallel:local'
   | 'index_parallel:druid'
@@ -120,6 +121,7 @@ function ingestionTypeToIoAndTuningConfigType(ingestionType: IngestionType): str
   switch (ingestionType) {
     case 'kafka':
     case 'kinesis':
+    case 'rabbit':
     case 'index_parallel':
       return ingestionType;
 
@@ -136,6 +138,7 @@ export function getIngestionComboType(
   switch (ioConfig.type) {
     case 'kafka':
     case 'kinesis':
+    case 'rabbit':
       return ioConfig.type;
 
     case 'index_parallel': {
@@ -193,6 +196,9 @@ export function getIngestionTitle(ingestionType: IngestionComboTypeWithExtra): s
     case 'kinesis':
       return 'Amazon Kinesis';
 
+    case 'rabbit':
+      return 'RabbitMQ';
+
     case 'hadoop':
       return 'HDFS';
 
@@ -226,6 +232,9 @@ export function getIngestionDocLink(spec: Partial<IngestionSpec>): string {
     case 'kinesis':
       return `${getLink('DOCS')}/development/extensions-core/kinesis-ingestion.html`;
 
+    case 'rabbit':
+      return `${getLink('DOCS')}/development/extensions-core/kinesis-ingestion.html`; // ToDo: fix link
+
     default:
       return `${getLink('DOCS')}/ingestion/native-batch.html#input-sources`;
   }
@@ -249,10 +258,9 @@ export function getRequiredModule(ingestionType: IngestionComboTypeWithExtra): s
       return 'druid-hdfs-storage';
 
     case 'kafka':
-      return 'druid-kafka-indexing-service';
-
     case 'kinesis':
-      return 'druid-kinesis-indexing-service';
+    case 'rabbit':
+      return `druid-${ingestionType}-indexing-service`;
 
     default:
       return;
@@ -561,6 +569,7 @@ export interface IoConfig {
   useEarliestOffset?: boolean;
   stream?: string;
   endpoint?: string;
+  uri?: string;
   useEarliestSequenceNumber?: boolean;
 }
 
@@ -1273,9 +1282,27 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
           info: <>The AWS external id to use for additional permissions.</>,
         },
       ];
-  }
 
-  throw new Error(`unknown input type ${ingestionComboType}`);
+    case 'rabbit':
+      return [
+        {
+          name: 'uri',
+          type: 'string',
+          required: true,
+          info: 'The URI to connect to RabbitMQ with.',
+        },
+        {
+          name: 'stream',
+          type: 'string',
+          placeholder: 'your-super-stream',
+          required: true,
+          info: <>The RabbitMQ super stream to read.</>,
+        },
+      ];
+
+    default:
+      throw new Error(`unknown input type ${ingestionComboType}`);
+  }
 }
 
 export function issueWithIoConfig(
@@ -1297,6 +1324,11 @@ export function issueWithIoConfig(
       break;
 
     case 'kinesis':
+      if (!ioConfig.stream) return 'must have a stream';
+      break;
+
+    case 'rabbit':
+      if (!ioConfig.uri) return 'must have a uri';
       if (!ioConfig.stream) return 'must have a stream';
       break;
   }
