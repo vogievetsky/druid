@@ -27,6 +27,7 @@ import {
   Tag,
 } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
+import classNames from 'classnames';
 import type { Column, SqlExpression } from 'druid-query-toolkit';
 import { SqlColumn } from 'druid-query-toolkit';
 import type { JSX } from 'react';
@@ -62,6 +63,7 @@ export interface ControlPaneProps {
   onUpdateParameterValues(params: Record<string, unknown>): void;
   parameters: Record<string, ParameterDefinition>;
   parameterValues: Record<string, unknown>;
+  compact?: boolean;
   onAddToSourceQueryAsColumn?(expression: SqlExpression): void;
   onAddToSourceQueryAsMeasure?(measure: Measure): void;
 }
@@ -72,6 +74,7 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     onUpdateParameterValues,
     parameters,
     parameterValues,
+    compact,
     onAddToSourceQueryAsColumn,
     onAddToSourceQueryAsMeasure,
   } = props;
@@ -87,8 +90,9 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     onDropColumn?: (column: Column) => void;
     onDropMeasure?: (measure: Measure) => void;
   } {
-    const effectiveValue = value ?? effectiveParameterDefault(parameter, querySource);
-    const required = evaluateFunctor(parameter.required, parameterValues);
+    const effectiveValue =
+      value ?? effectiveParameterDefault(parameter, parameterValues, querySource);
+    const required = evaluateFunctor(parameter.required, parameterValues, querySource);
     switch (parameter.type) {
       case 'boolean': {
         return {
@@ -349,10 +353,12 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
   const namedParameters = Object.entries(parameters ?? {});
 
   return (
-    <div className="control-pane">
+    <div className={classNames('control-pane', { compact })}>
       {namedParameters.map(([name, parameter], i) => {
-        const visible = evaluateFunctor(parameter.visible, parameterValues);
-        if (visible === false) return;
+        const visible = evaluateFunctor(parameter.visible, parameterValues, querySource);
+        const defined = evaluateFunctor(parameter.defined, parameterValues, querySource);
+        if (visible === false || defined === false) return;
+        if (compact && !parameter.important) return;
 
         const value = parameterValues[name];
 
@@ -366,13 +372,17 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
           onValueChange,
         );
 
-        const description = evaluateFunctor(parameter.description, parameterValues);
+        const label =
+          evaluateFunctor(parameter.label, parameterValues, querySource) ||
+          AutoForm.makeLabelName(name);
+        const description = compact
+          ? undefined
+          : evaluateFunctor(parameter.description, parameterValues, querySource);
         const formGroup = (
           <FormGroupWithInfo
             key={i}
-            label={
-              evaluateFunctor(parameter.label, parameterValues) || AutoForm.makeLabelName(name)
-            }
+            label={label}
+            inline={compact}
             info={description && <PopoverText>{description}</PopoverText>}
           >
             {element}

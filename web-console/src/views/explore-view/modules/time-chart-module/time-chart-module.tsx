@@ -16,28 +16,27 @@
  * limitations under the License.
  */
 
+import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import { C, F, L, SqlCase } from 'druid-query-toolkit';
 import type { ECharts } from 'echarts';
 import * as echarts from 'echarts';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Loader } from '../../../components';
-import { useQueryManager } from '../../../hooks';
+import type { PortalBubbleOpenOn } from '../../../../components';
+import { Loader, PortalBubble } from '../../../../components';
+import { useQueryManager } from '../../../../hooks';
 import {
   Duration,
   formatInteger,
   formatNumber,
   prettyFormatIsoDateTick,
   prettyFormatIsoDateWithMsIfNeeded,
-} from '../../../utils';
-import { Issue } from '../components';
-import { highlightStore } from '../highlight-store/highlight-store';
-import type { ExpressionMeta } from '../models';
-import { ModuleRepository } from '../module-repository/module-repository';
-import { DATE_FORMAT, getAutoGranularity } from '../utils';
-
-import './record-table-module.scss';
+} from '../../../../utils';
+import { Issue } from '../../components';
+import type { ExpressionMeta } from '../../models';
+import { ModuleRepository } from '../../module-repository/module-repository';
+import { DATE_FORMAT, getAutoGranularity } from '../../utils';
 
 const TIME_NAME = '__t__';
 const METRIC_NAME = '__met__';
@@ -63,6 +62,11 @@ function transformData(data: any[], vs: string[]): Record<string, number>[] {
   return ret;
 }
 
+interface TimeChartHighlight extends PortalBubbleOpenOn {
+  start: Date;
+  end: Date;
+}
+
 interface TimeChartParameterValues {
   timeGranularity: string;
   splitColumn?: ExpressionMeta;
@@ -81,6 +85,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'option',
       options: ['auto', 'PT1M', 'PT5M', 'PT30M', 'PT1H', 'P1D'],
       defaultValue: 'auto',
+      important: true,
       optionLabels: {
         auto: 'Auto',
         PT1M: 'Minute',
@@ -95,6 +100,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'expression',
       label: 'Stack by',
       transferGroup: 'show',
+      important: true,
     },
     numberToStack: {
       type: 'number',
@@ -113,7 +119,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'measure',
       label: 'Measure to show',
       transferGroup: 'show-agg',
-      defaultValue: querySource => querySource.getFirstAggregateMeasure(),
+      important: true,
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
     snappyHighlight: {
@@ -125,7 +132,9 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
   },
   component: function TimeChartModule(props) {
     const { querySource, where, setWhere, parameterValues, stage, runSqlQuery } = props;
+    const containerRef = useRef<HTMLDivElement>();
     const chartRef = useRef<ECharts>();
+    const [highlight, setHighlight] = useState<TimeChartHighlight | undefined>();
 
     const timeColumnName = querySource.columns.find(column => column.sqlType === 'TIMESTAMP')?.name;
     const timeGranularity =
@@ -288,14 +297,10 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       const { effectiveVs, sourceData, measure } = data;
 
       myChart.off('brush');
-      myChart.off('brushend');
 
       myChart.on('brush', (params: any) => {
         if (!params.areas.length) return;
 
-        // this is only used for the label and the data saved in the highlight
-        // the positioning is done with the true coordinates until the user
-        // releases the mouse button (in the `brushend` event)
         let start = params.areas[0].coordRange[0];
         let end = params.areas[0].coordRange[1];
         if (snappyHighlight) {
@@ -307,67 +312,51 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
         const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[0]);
         const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[1]);
 
-        highlightStore.getState().setHighlight({
-          label: DATE_FORMAT.formatRange(start, end),
-          x: x0 + (x1 - x0) / 2,
-          y: 40,
-          data: { start, end },
-          onDrop: () => {
-            highlightStore.getState().dropHighlight();
-            myChart.dispatchAction({
-              type: 'brush',
-              command: 'clear',
-              areas: [],
-            });
-          },
-          onSave: () => {
-            if (!timeColumnName) return;
-            setWhere(
-              where.changeClauseInWhere(
-                F(
-                  'TIME_IN_INTERVAL',
-                  C(timeColumnName),
-                  `${start.toISOString()}/${end.toISOString()}`,
-                ),
-              ),
-            );
-            highlightStore.getState().dropHighlight();
-            myChart.dispatchAction({
-              type: 'brush',
-              command: 'clear',
-              areas: [],
-            });
-          },
-        });
-      });
-
-      // once the user is done selecting a range, this will snap the start and end
-      myChart.on('brushend', () => {
-        const highlight = highlightStore.getState().highlight;
-        if (!highlight) return;
-
-        // this is already snapped
-        const { start, end } = highlight.data;
-
-        const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, start);
-        const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, end);
-
-        // positions the bubble on the snapped start and end
-        highlightStore.getState().updateHighlight({
-          x: x0 + (x1 - x0) / 2,
-        });
-
-        // gives the chart the snapped range to highlight
-        // (will replace the area the user just selected)
-        myChart.dispatchAction({
-          type: 'brush',
-          areas: [
-            {
-              brushType: 'lineX',
-              coordRange: [start, end],
-              xAxisIndex: 0,
-            },
-          ],
+        setHighlight({
+          title: DATE_FORMAT.formatRange(start, end),
+          x: (x0 + x1) / 2,
+          y: 50,
+          start,
+          end,
+          text: (
+            <div className="button-bar">
+              <Button
+                text="Zoom in"
+                intent={Intent.PRIMARY}
+                small
+                onClick={() => {
+                  if (!timeColumnName) return;
+                  setWhere(
+                    where.changeClauseInWhere(
+                      F(
+                        'TIME_IN_INTERVAL',
+                        C(timeColumnName),
+                        `${start.toISOString()}/${end.toISOString()}`,
+                      ),
+                    ),
+                  );
+                  setHighlight(undefined);
+                  myChart.dispatchAction({
+                    type: 'brush',
+                    command: 'clear',
+                    areas: [],
+                  });
+                }}
+              />
+              <Button
+                text="Close"
+                small
+                onClick={() => {
+                  setHighlight(undefined);
+                  myChart.dispatchAction({
+                    type: 'brush',
+                    command: 'clear',
+                    areas: [],
+                  });
+                }}
+              />
+            </div>
+          ),
         });
       });
 
@@ -418,15 +407,15 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
 
       // if there is a highlight, update its x position
       // by calculating new pixel position from the highlight's data
-      const highlight = highlightStore.getState().highlight;
       if (highlight) {
-        const { start, end } = highlight.data;
+        const { start, end } = highlight;
 
         const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, start);
         const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, end);
 
-        highlightStore.getState().updateHighlight({
-          x: x0 + (x1 - x0) / 2,
+        setHighlight({
+          ...highlight,
+          x: (x0 + x1) / 2,
         });
       }
     }, [stage]);
@@ -438,6 +427,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           className="echart-container"
           ref={container => {
             if (chartRef.current || !container) return;
+            containerRef.current = container;
             chartRef.current = setupChart(container);
           }}
         />
@@ -445,6 +435,11 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
         {sourceDataState.loading && (
           <Loader cancelText="Cancel query" onCancel={() => queryManager.cancelCurrent()} />
         )}
+        <PortalBubble
+          className="module-bubble"
+          openOn={highlight}
+          offsetElement={containerRef.current}
+        />
       </div>
     );
   },

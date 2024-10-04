@@ -433,7 +433,10 @@ export function filterMap<T, Q>(xs: readonly T[], f: (x: T, i: number) => Q | un
   return xs.map(f).filter((x: Q | undefined) => typeof x !== 'undefined') as Q[];
 }
 
-export function filterMapIfChanged<T>(xs: T[], f: (x: T, i: number) => T | undefined): T[] {
+export function filterMapIfChanged<T>(
+  xs: readonly T[],
+  f: (x: T, i: number) => T | undefined,
+): readonly T[] {
   let changed = false;
   const newXs = filterMap(xs, (x, i) => {
     const newX = f(x, i);
@@ -638,8 +641,8 @@ export function hasOverlayOpen(): boolean {
   return Boolean(document.querySelector(OVERLAY_OPEN_SELECTOR));
 }
 
-export function checkedCircleIcon(checked: boolean): IconName {
-  return checked ? IconNames.TICK_CIRCLE : IconNames.CIRCLE;
+export function checkedCircleIcon(checked: boolean, exclude?: boolean): IconName {
+  return checked ? (exclude ? IconNames.CROSS_CIRCLE : IconNames.TICK_CIRCLE) : IconNames.CIRCLE;
 }
 
 export function tickIcon(checked: boolean): IconName {

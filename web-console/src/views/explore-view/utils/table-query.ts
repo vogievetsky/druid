@@ -178,7 +178,7 @@ function getInnerJoinConditions(groupByExpressions: SqlAlias[]): SqlExpression[]
   return groupByExpressions.map(groupByExpression =>
     groupByExpression
       .getUnderlyingExpression()
-      .isNotDistinctFrom(T(TOP_VALUES_NAME).column(groupByExpression.getOutputName()!)),
+      .isNotDistinctFrom(T(TOP_VALUES_NAME).column(groupByExpression.getOutputName() || '')),
   );
 }
 

@@ -16,7 +16,8 @@
  * limitations under the License.
  */
 
-import type { Column, FilterPattern } from 'druid-query-toolkit';
+import type { Column, FilterPattern, SqlExpression } from 'druid-query-toolkit';
+import { filterPatternToExpression, SqlComparison, SqlMulti, SqlQuery } from 'druid-query-toolkit';
 
 import { Duration } from '../../../utils';
 
@@ -99,4 +100,40 @@ export function formatPatternWithoutNegation(pattern: FilterPattern): string {
     case 'custom':
       return String(pattern.expression);
   }
+}
+
+export function patternToBoundsQuery(
+  source: SqlQuery,
+  filterPattern: FilterPattern,
+): SqlQuery | undefined {
+  if (filterPattern.type !== 'timeRelative') return;
+  const ex = filterPatternToExpression(filterPattern);
+  if (!(ex instanceof SqlMulti)) return;
+  if (ex.numArgs() !== 2) return;
+  const [startEx, endEx] = ex.getArgArray();
+  if (!(startEx instanceof SqlComparison)) return;
+  if (!(endEx instanceof SqlComparison)) return;
+  return SqlQuery.from(source)
+    .changeSelectExpressions([startEx.lhs.as('start'), (endEx.rhs as SqlExpression).as('end')])
+    .changeLimitValue(1); // Todo: make this better
+}
+
+export function addOrUpdatePattern(
+  patterns: readonly FilterPattern[],
+  oldPattern: FilterPattern | undefined,
+  newPattern: FilterPattern,
+): FilterPattern[] {
+  let added = false;
+  const newPatterns = patterns.map(pattern => {
+    if (pattern === oldPattern) {
+      added = true;
+      return newPattern;
+    } else {
+      return pattern;
+    }
+  });
+  if (!added) {
+    newPatterns.push(newPattern);
+  }
+  return newPatterns;
 }

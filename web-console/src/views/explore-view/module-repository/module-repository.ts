@@ -27,7 +27,7 @@ interface ModuleDefinition<P> {
   id: string;
   icon: IconName;
   title: string;
-  parameters: Record<keyof P, ParameterDefinition>;
+  parameters: Readonly<Record<keyof P, ParameterDefinition>>;
   component: (props: ModuleComponentProps<P>) => any;
 }
 

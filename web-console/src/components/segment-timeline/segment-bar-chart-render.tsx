@@ -545,114 +545,109 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
   }
 
   let hoveredOpenOn: PortalBubbleOpenOn | undefined;
-  if (svgRef.current) {
-    const rect = svgRef.current.getBoundingClientRect();
 
-    if (bubbleInfo) {
-      const hoveredIntervalBars = bubbleInfo.intervalBars;
+  if (bubbleInfo) {
+    const hoveredIntervalBars = bubbleInfo.intervalBars;
 
-      let title: string | undefined;
-      let text: ReactNode;
-      if (hoveredIntervalBars.length === 0) {
-        title = bubbleInfo.timeLabel;
-        text = '';
-      } else if (hoveredIntervalBars.length === 1) {
-        const hoveredIntervalBar = hoveredIntervalBars[0];
-        title = `${formatStartDuration(
-          hoveredIntervalBar.start,
-          hoveredIntervalBar.originalTimeSpan,
-        )}${hoveredIntervalBar.realtime ? ' (realtime)' : ''}`;
-        text = (
-          <>
-            {!shownDatasource && <div>{`Datasource: ${hoveredIntervalBar.datasource}`}</div>}
-            <div>{`Size: ${
-              hoveredIntervalBar.realtime
-                ? 'estimated for realtime'
-                : formatIntervalStat('size', hoveredIntervalBar.size)
-            }`}</div>
-            <div>{`Rows: ${formatIntervalStat('rows', hoveredIntervalBar.rows)}`}</div>
-            <div>{`Segments: ${formatIntervalStat('segments', hoveredIntervalBar.segments)}`}</div>
-          </>
-        );
-      } else {
-        const datasources = uniq(hoveredIntervalBars.map(b => b.datasource));
-        const agg = aggregateSegmentStats(hoveredIntervalBars);
-        title = bubbleInfo.timeLabel;
-        text = (
-          <>
-            {!shownDatasource && (
-              <div>{`Totals for ${pluralIfNeeded(datasources.length, 'datasource')}`}</div>
-            )}
-            <div>{`Size: ${formatIntervalStat('size', agg.size)}`}</div>
-            <div>{`Rows: ${formatIntervalStat('rows', agg.rows)}`}</div>
-            <div>{`Segments: ${formatIntervalStat('segments', agg.segments)}`}</div>
-          </>
-        );
-      }
-
-      hoveredOpenOn = {
-        x:
-          rect.x +
-          CHART_MARGIN.left +
-          timeScale(new Date((bubbleInfo.start.valueOf() + bubbleInfo.end.valueOf()) / 2)),
-        y: rect.y + CHART_MARGIN.top,
-        title,
-        text,
-      };
-    } else if (selection) {
-      const selectedBars = intervalTree.search([
-        selection.start.valueOf() + 1,
-        selection.end.valueOf() - 1,
-      ]) as IntervalBar[];
-      const datasources = uniq(selectedBars.map(b => b.datasource));
-      const realtime = allSameValue(selectedBars.map(b => b.realtime));
-      const agg = aggregateSegmentStats(selectedBars);
-      hoveredOpenOn = {
-        x:
-          rect.x +
-          CHART_MARGIN.left +
-          timeScale(new Date((selection.start.valueOf() + selection.end.valueOf()) / 2)),
-        y: rect.y + CHART_MARGIN.top,
-        title: `${formatIsoDateOnly(selection.start)} → ${formatIsoDateOnly(selection.end)}`,
-        text: (
-          <>
-            {selectedBars.length ? (
-              <>
-                {!shownDatasource && (
-                  <div>{`Totals for ${pluralIfNeeded(datasources.length, 'datasource')}`}</div>
-                )}
-                <div>{`Size: ${formatIntervalStat('size', agg.size)}`}</div>
-                <div>{`Rows: ${formatIntervalStat('rows', agg.rows)}`}</div>
-                <div>{`Segments: ${formatIntervalStat('segments', agg.segments)}`}</div>
-              </>
-            ) : (
-              <div>No segments in this interval</div>
-            )}
-            {selection.done && (
-              <div className="button-bar">
-                <Button
-                  icon={IconNames.ZOOM_IN}
-                  text="Zoom in"
-                  intent={Intent.PRIMARY}
-                  small
-                  onClick={() => {
-                    if (!selection) return;
-                    setSelection(undefined);
-                    changeDateRange([selection.start, selection.end]);
-                  }}
-                />
-                {getIntervalActionButton?.(
-                  selection.start,
-                  selection.end,
-                  datasources.length === 1 ? datasources[0] : undefined,
-                  realtime,
-                )}
-              </div>
-            )}
-          </>
-        ),
-      };
+    let title: string | undefined;
+    let text: ReactNode;
+    if (hoveredIntervalBars.length === 0) {
+      title = bubbleInfo.timeLabel;
+      text = '';
+    } else if (hoveredIntervalBars.length === 1) {
+      const hoveredIntervalBar = hoveredIntervalBars[0];
+      title = `${formatStartDuration(
+        hoveredIntervalBar.start,
+        hoveredIntervalBar.originalTimeSpan,
+      )}${hoveredIntervalBar.realtime ? ' (realtime)' : ''}`;
+      text = (
+        <>
+          {!shownDatasource && <div>{`Datasource: ${hoveredIntervalBar.datasource}`}</div>}
+          <div>{`Size: ${
+            hoveredIntervalBar.realtime
+              ? 'estimated for realtime'
+              : formatIntervalStat('size', hoveredIntervalBar.size)
+          }`}</div>
+          <div>{`Rows: ${formatIntervalStat('rows', hoveredIntervalBar.rows)}`}</div>
+          <div>{`Segments: ${formatIntervalStat('segments', hoveredIntervalBar.segments)}`}</div>
+        </>
+      );
+    } else {
+      const datasources = uniq(hoveredIntervalBars.map(b => b.datasource));
+      const agg = aggregateSegmentStats(hoveredIntervalBars);
+      title = bubbleInfo.timeLabel;
+      text = (
+        <>
+          {!shownDatasource && (
+            <div>{`Totals for ${pluralIfNeeded(datasources.length, 'datasource')}`}</div>
+          )}
+          <div>{`Size: ${formatIntervalStat('size', agg.size)}`}</div>
+          <div>{`Rows: ${formatIntervalStat('rows', agg.rows)}`}</div>
+          <div>{`Segments: ${formatIntervalStat('segments', agg.segments)}`}</div>
+        </>
+      );
     }
+
+    hoveredOpenOn = {
+      x:
+        CHART_MARGIN.left +
+        timeScale(new Date((bubbleInfo.start.valueOf() + bubbleInfo.end.valueOf()) / 2)),
+      y: CHART_MARGIN.top,
+      title,
+      text,
+    };
+  } else if (selection) {
+    const selectedBars = intervalTree.search([
+      selection.start.valueOf() + 1,
+      selection.end.valueOf() - 1,
+    ]) as IntervalBar[];
+    const datasources = uniq(selectedBars.map(b => b.datasource));
+    const realtime = allSameValue(selectedBars.map(b => b.realtime));
+    const agg = aggregateSegmentStats(selectedBars);
+    hoveredOpenOn = {
+      x:
+        CHART_MARGIN.left +
+        timeScale(new Date((selection.start.valueOf() + selection.end.valueOf()) / 2)),
+      y: CHART_MARGIN.top,
+      title: `${formatIsoDateOnly(selection.start)} → ${formatIsoDateOnly(selection.end)}`,
+      text: (
+        <>
+          {selectedBars.length ? (
+            <>
+              {!shownDatasource && (
+                <div>{`Totals for ${pluralIfNeeded(datasources.length, 'datasource')}`}</div>
+              )}
+              <div>{`Size: ${formatIntervalStat('size', agg.size)}`}</div>
+              <div>{`Rows: ${formatIntervalStat('rows', agg.rows)}`}</div>
+              <div>{`Segments: ${formatIntervalStat('segments', agg.segments)}`}</div>
+            </>
+          ) : (
+            <div>No segments in this interval</div>
+          )}
+          {selection.done && (
+            <div className="button-bar">
+              <Button
+                icon={IconNames.ZOOM_IN}
+                text="Zoom in"
+                intent={Intent.PRIMARY}
+                small
+                onClick={() => {
+                  if (!selection) return;
+                  setSelection(undefined);
+                  changeDateRange([selection.start, selection.end]);
+                }}
+              />
+              {getIntervalActionButton?.(
+                selection.start,
+                selection.end,
+                datasources.length === 1 ? datasources[0] : undefined,
+                realtime,
+              )}
+            </div>
+          )}
+        </>
+      ),
+    };
   }
 
   function renderLoadRule(loadRule: Rule, i: number, isDefault: boolean) {
@@ -781,13 +776,16 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
           <div className="no-data-text">There are no segments in the selected range</div>
         </div>
       )}
-      <PortalBubble
-        className="segment-bar-chart-bubble"
-        openOn={hoveredOpenOn}
-        onClose={selection?.done ? () => setSelection(undefined) : undefined}
-        mute
-        direction="up"
-      />
+      {svgRef.current && (
+        <PortalBubble
+          className="segment-bar-chart-bubble"
+          openOn={hoveredOpenOn}
+          offsetElement={svgRef.current}
+          onClose={selection?.done ? () => setSelection(undefined) : undefined}
+          mute
+          direction="up"
+        />
+      )}
     </div>
   );
 };

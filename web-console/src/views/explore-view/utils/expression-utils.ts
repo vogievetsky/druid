@@ -16,32 +16,24 @@
  * limitations under the License.
  */
 
-.highlight-bubble {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  z-index: 10;
-  min-width: 200px;
-  max-width: 500px;
+import { SqlExpression } from 'druid-query-toolkit';
 
-  // shpitz
-  &:after {
-    content: ' ';
-    position: absolute;
-    left: 50%;
-    transform: translate(-50%, 0);
-    bottom: -15px;
-    border-top: 15px solid #2f344e;
-    border-right: 15px solid transparent;
-    border-left: 15px solid transparent;
-    border-bottom: none;
-  }
-
-  .button-group {
-    margin-top: 20px;
-    text-align: right;
-
-    > *:not(:last-child) {
-      margin-right: 10px;
+export function updateFilterClause(filter: SqlExpression, clause: SqlExpression) {
+  const column = clause.getFirstColumnName();
+  const currentClauses = filter.decomposeViaAnd();
+  let added = false;
+  const newClauses = currentClauses.map(c => {
+    if (c.getFirstColumnName() === column) {
+      added = true;
+      return clause;
+    } else {
+      return c;
     }
+  });
+
+  if (added) {
+    return SqlExpression.and(...newClauses);
+  } else {
+    return SqlExpression.and(...newClauses, clause);
   }
 }

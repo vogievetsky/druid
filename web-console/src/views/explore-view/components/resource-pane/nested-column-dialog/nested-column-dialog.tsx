@@ -94,7 +94,11 @@ export const NestedColumnDialog = React.memo(function NestedColumnDialog(
         {pathsState.getErrorMessage()}
         {paths && (
           <FormGroup>
-            <ClearableInput value={searchString} onChange={setSearchString} placeholder="Search" />
+            <ClearableInput
+              value={searchString}
+              onValueChange={setSearchString}
+              placeholder="Search"
+            />
             <Menu className="path-selector">
               {filterMap(paths, (path, i) => {
                 if (!caseInsensitiveContains(path, searchString)) return;
@@ -157,7 +161,7 @@ export const NestedColumnDialog = React.memo(function NestedColumnDialog(
                   : namingScheme + '[%]';
                 onApply(
                   querySource.addColumnAfter(
-                    nestedColumn.getOutputName()!,
+                    nestedColumn.getOutputName() || '',
                     ...selectedPaths.map(path =>
                       F('JSON_VALUE', nestedColumn, path).as(
                         querySource.getAvailableName(
