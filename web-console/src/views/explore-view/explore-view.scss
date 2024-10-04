@@ -64,24 +64,37 @@ $resources-width: 240px;
     display: grid;
     grid-template-columns: $resources-width 1fr $resources-width;
     grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'src fil fil'
+      'res mod sid';
     gap: 8px;
 
-    .source-pane,
-    .filter-pane,
-    .module-picker,
-    .control-pane-cnt {
+    & > .source-pane {
+      grid-area: src;
       @include card-like;
       padding: 8px;
-      height: 100%;
-      overflow: auto;
     }
 
-    .resource-pane-cnt,
-    .module-holder {
+    & > .filter-pane-container {
+      grid-area: fil;
+      position: relative;
+      @include card-like;
+      padding-right: 46px;
+
+      .more-button {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+      }
+    }
+
+    & > .control-pane-cnt {
+      grid-area: res;
       @include card-like;
     }
 
-    .resource-pane-cnt {
+    & > .resource-pane-cnt {
+      @include card-like;
       position: relative;
       height: 100%;
 
@@ -92,7 +105,9 @@ $resources-width: 240px;
       }
     }
 
-    .main-cnt {
+    & > .module-container {
+      grid-area: mod;
+
       .module-pane {
         height: 100%;
       }

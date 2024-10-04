@@ -18,33 +18,64 @@
 
 @import '../../../../variables';
 
+$tob-bar-height: 34px;
+$control-pane-width: 240px;
+
 .module-pane {
   position: relative;
   @include card-like;
 
-  & > .module {
+  .module-top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 100%;
-    position: relative;
+    height: $tob-bar-height;
+    border-bottom: 1px solid $dark-gray2;
+    padding: 2px;
+  }
 
-    & > .echart-container {
-      position: absolute;
+  .control-pane-container {
+    position: absolute;
+    top: $tob-bar-height + 1;
+    bottom: 0;
+    width: $control-pane-width;
+    right: 0;
+    border-left: 1px solid $dark-gray2;
+    padding: 8px;
+  }
+
+  .module-inner-container {
+    position: absolute;
+    top: $tob-bar-height + 1;
+    bottom: 0;
+    left: 0;
+    right: $control-pane-width + 1;
+
+    & > .module {
       width: 100%;
       height: 100%;
-    }
+      position: relative;
 
-    & > .issue {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
+      & > .echart-container {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
 
-    .loader {
-      position: absolute;
-      top: 0;
-      left: 0;
+      & > .issue {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .loader {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
     }
   }
 }

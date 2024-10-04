@@ -18,7 +18,7 @@
 
 import './modules';
 
-import { Button, Intent, Menu, MenuDivider, MenuItem } from '@blueprintjs/core';
+import { Button, Intent, Menu, MenuDivider, MenuItem, Popover, Position } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import type { Column, QueryResult, SqlExpression } from '@druid-toolkit/query';
 import { QueryRunner, SqlQuery } from '@druid-toolkit/query';
@@ -43,12 +43,10 @@ import {
 } from '../../utils';
 
 import {
-  ControlPane,
   DroppableContainer,
   FilterPane,
   HighlightBubble,
   ModulePane,
-  ModulePicker,
   ResourcePane,
   SourcePane,
   SourceQueryPane,
@@ -296,115 +294,82 @@ export const ExploreView = React.memo(function ExploreView() {
             minimal
             disabled={Boolean(querySource && querySourceState.loading)}
           />
-          <FilterPane
-            ref={filterPane}
-            querySource={querySource}
-            filter={where}
-            onFilterChange={setWhere}
-            runSqlQuery={runSqlPlusQuery}
-            onAddToSourceQueryAsColumn={expression => {
-              if (!querySource) return;
-              setExploreState(
-                exploreState.changeSource(
-                  querySource.addColumn(querySource.transformToBaseColumns(expression)),
-                  undefined,
-                ),
-              );
-            }}
-            onMoveToSourceQueryAsClause={(expression, changeWhere) => {
-              if (!querySource) return;
-              setExploreState(
-                exploreState
-                  .change({ where: changeWhere })
-                  .changeSource(
-                    querySource.addWhereClause(querySource.transformToBaseColumns(expression)),
+          <div className="filter-pane-container">
+            <FilterPane
+              ref={filterPane}
+              querySource={querySource}
+              filter={where}
+              onFilterChange={setWhere}
+              runSqlQuery={runSqlPlusQuery}
+              onAddToSourceQueryAsColumn={expression => {
+                if (!querySource) return;
+                setExploreState(
+                  exploreState.changeSource(
+                    querySource.addColumn(querySource.transformToBaseColumns(expression)),
                     undefined,
                   ),
-              );
-            }}
-          />
-          <ModulePicker
-            selectedModuleId={moduleId}
-            onSelectedModuleIdChange={newModuleId => {
-              let newParameterValues = getStickyParameterValuesForModule(newModuleId);
-
-              const oldModule = ModuleRepository.getModule(moduleId);
-              const newModule = ModuleRepository.getModule(newModuleId);
-              if (oldModule && newModule) {
-                const oldModuleParameters = oldModule.parameters || {};
-                const newModuleParameters = newModule.parameters || {};
-                for (const paramName in oldModuleParameters) {
-                  const parameterValue = parameterValues[paramName];
-                  if (typeof parameterValue === 'undefined') continue;
-
-                  const oldParameterDefinition = oldModuleParameters[paramName];
-                  const transferGroup = oldParameterDefinition.transferGroup;
-                  if (typeof transferGroup !== 'string') continue;
-
-                  const normalizedType = normalizeType(oldParameterDefinition.type);
-                  const target = Object.entries(newModuleParameters).find(
-                    ([_, def]) =>
-                      def.transferGroup === transferGroup &&
-                      normalizeType(def.type) === normalizedType,
-                  );
-                  if (!target) continue;
-
-                  newParameterValues = {
-                    ...newParameterValues,
-                    [target[0]]: adjustTransferValue(
-                      parameterValue,
-                      oldParameterDefinition.type,
-                      target[1].type,
+                );
+              }}
+              onMoveToSourceQueryAsClause={(expression, changeWhere) => {
+                if (!querySource) return;
+                setExploreState(
+                  exploreState
+                    .change({ where: changeWhere })
+                    .changeSource(
+                      querySource.addWhereClause(querySource.transformToBaseColumns(expression)),
+                      undefined,
                     ),
-                  };
-                }
+                );
+              }}
+            />
+            <Popover
+              className="more-button"
+              position={Position.BOTTOM_RIGHT}
+              content={
+                <Menu>
+                  <MenuItem
+                    icon={IconNames.DUPLICATE}
+                    text="Copy last query"
+                    disabled={!QUERY_LOG.length()}
+                    onClick={() => {
+                      copy(QUERY_LOG.getLastQuery()!, { format: 'text/plain' });
+                      AppToaster.show({
+                        message: `Copied query to clipboard`,
+                        intent: Intent.SUCCESS,
+                      });
+                    }}
+                  />
+                  <MenuItem
+                    icon={IconNames.HISTORY}
+                    text="Show query log"
+                    onClick={() => {
+                      setShownText(QUERY_LOG.getFormatted());
+                    }}
+                  />
+                  <MenuItem
+                    icon={IconNames.RESET}
+                    text="Reset visualization parameters"
+                    onClick={() => {
+                      resetParameterValues();
+                    }}
+                  />
+                  <MenuDivider />
+                  <MenuItem
+                    icon={IconNames.TRASH}
+                    text="Clear all view state"
+                    intent={Intent.DANGER}
+                    onClick={() => {
+                      localStorage.removeItem(LocalStorageKeys.EXPLORE_STATE);
+                      location.hash = '#explore';
+                      location.reload();
+                    }}
+                  />
+                </Menu>
               }
-
-              dropHighlight();
-              setModuleId(newModuleId, newParameterValues);
-            }}
-            moreMenu={
-              <Menu>
-                <MenuItem
-                  icon={IconNames.DUPLICATE}
-                  text="Copy last query"
-                  disabled={!QUERY_LOG.length()}
-                  onClick={() => {
-                    copy(QUERY_LOG.getLastQuery()!, { format: 'text/plain' });
-                    AppToaster.show({
-                      message: `Copied query to clipboard`,
-                      intent: Intent.SUCCESS,
-                    });
-                  }}
-                />
-                <MenuItem
-                  icon={IconNames.HISTORY}
-                  text="Show query log"
-                  onClick={() => {
-                    setShownText(QUERY_LOG.getFormatted());
-                  }}
-                />
-                <MenuItem
-                  icon={IconNames.RESET}
-                  text="Reset visualization parameters"
-                  onClick={() => {
-                    resetParameterValues();
-                  }}
-                />
-                <MenuDivider />
-                <MenuItem
-                  icon={IconNames.TRASH}
-                  text="Clear all view state"
-                  intent={Intent.DANGER}
-                  onClick={() => {
-                    localStorage.removeItem(LocalStorageKeys.EXPLORE_STATE);
-                    location.hash = '#explore';
-                    location.reload();
-                  }}
-                />
-              </Menu>
-            }
-          />
+            >
+              <Button minimal icon={IconNames.MORE} />
+            </Popover>
+          </div>
           <div className="resource-pane-cnt">
             {!querySource && querySourceState.loading && 'Loading...'}
             {querySource && (
@@ -421,7 +386,7 @@ export const ExploreView = React.memo(function ExploreView() {
             )}
           </div>
           <DroppableContainer
-            className="main-cnt"
+            className="module-container"
             ref={containerRef}
             onDropColumn={onShowColumn}
             onDropMeasure={onShowMeasure}
@@ -431,24 +396,50 @@ export const ExploreView = React.memo(function ExploreView() {
             ) : querySource ? (
               <ModulePane
                 moduleId={moduleId}
+                onSelectedModuleIdChange={newModuleId => {
+                  let newParameterValues = getStickyParameterValuesForModule(newModuleId);
+
+                  const oldModule = ModuleRepository.getModule(moduleId);
+                  const newModule = ModuleRepository.getModule(newModuleId);
+                  if (oldModule && newModule) {
+                    const oldModuleParameters = oldModule.parameters || {};
+                    const newModuleParameters = newModule.parameters || {};
+                    for (const paramName in oldModuleParameters) {
+                      const parameterValue = parameterValues[paramName];
+                      if (typeof parameterValue === 'undefined') continue;
+
+                      const oldParameterDefinition = oldModuleParameters[paramName];
+                      const transferGroup = oldParameterDefinition.transferGroup;
+                      if (typeof transferGroup !== 'string') continue;
+
+                      const normalizedType = normalizeType(oldParameterDefinition.type);
+                      const target = Object.entries(newModuleParameters).find(
+                        ([_, def]) =>
+                          def.transferGroup === transferGroup &&
+                          normalizeType(def.type) === normalizedType,
+                      );
+                      if (!target) continue;
+
+                      newParameterValues = {
+                        ...newParameterValues,
+                        [target[0]]: adjustTransferValue(
+                          parameterValue,
+                          oldParameterDefinition.type,
+                          target[1].type,
+                        ),
+                      };
+                    }
+                  }
+
+                  dropHighlight();
+                  setModuleId(newModuleId, newParameterValues);
+                }}
                 querySource={querySource}
                 where={where}
                 setWhere={setWhere}
                 parameterValues={parameterValues}
                 setParameterValues={updateParameterValues}
                 runSqlQuery={runSqlPlusQuery}
-              />
-            ) : querySourceState.loading ? (
-              <Loader />
-            ) : undefined}
-          </DroppableContainer>
-          <div className="control-pane-cnt">
-            {module && (
-              <ControlPane
-                querySource={querySource}
-                onUpdateParameterValues={updateParameterValues}
-                parameters={module.parameters}
-                parameterValues={parameterValues}
                 onAddToSourceQueryAsColumn={expression => {
                   if (!querySource) return;
                   setExploreState(
@@ -472,8 +463,10 @@ export const ExploreView = React.memo(function ExploreView() {
                   );
                 }}
               />
-            )}
-          </div>
+            ) : querySourceState.loading ? (
+              <Loader />
+            ) : undefined}
+          </DroppableContainer>
           {shownText && (
             <ShowValueDialog
               title="Query history"

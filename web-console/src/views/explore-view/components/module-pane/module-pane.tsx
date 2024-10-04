@@ -20,10 +20,12 @@ import { ResizeSensor } from '@blueprintjs/core';
 import type { QueryResult, SqlExpression, SqlQuery } from '@druid-toolkit/query';
 import React, { useMemo, useState } from 'react';
 
-import type { ParameterDefinition, ParameterValues, QuerySource } from '../../models';
+import type { Measure, ParameterDefinition, ParameterValues, QuerySource } from '../../models';
 import { effectiveParameterDefault, Stage } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
+import { ControlPane } from '../control-pane/control-pane';
 import { Issue } from '../issue/issue';
+import { ModulePicker } from '../module-picker/module-picker';
 
 import './module-pane.scss';
 
@@ -42,6 +44,7 @@ function fillInDefaults(
 
 export interface ModulePaneProps {
   moduleId: string;
+  onSelectedModuleIdChange(moduleId: string): void;
   querySource: QuerySource;
   where: SqlExpression;
   setWhere(where: SqlExpression): void;
@@ -49,17 +52,23 @@ export interface ModulePaneProps {
   parameterValues: ParameterValues;
   setParameterValues(parameters: ParameterValues): void;
   runSqlQuery(query: string | SqlQuery): Promise<QueryResult>;
+
+  onAddToSourceQueryAsColumn?(expression: SqlExpression): void;
+  onAddToSourceQueryAsMeasure?(measure: Measure): void;
 }
 
 export const ModulePane = function ModulePane(props: ModulePaneProps) {
   const {
     moduleId,
+    onSelectedModuleIdChange,
     querySource,
     where,
     setWhere,
     parameterValues,
     setParameterValues,
     runSqlQuery,
+    onAddToSourceQueryAsColumn,
+    onAddToSourceQueryAsMeasure,
   } = props;
   const [stage, setStage] = useState<Stage | undefined>();
 
@@ -91,15 +100,35 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
   }
 
   return (
-    <ResizeSensor
-      onResize={entries => {
-        if (entries.length !== 1) return;
-        const newStage = new Stage(entries[0].contentRect.width, entries[0].contentRect.height);
-        if (newStage.equals(stage)) return;
-        setStage(newStage);
-      }}
-    >
-      <div className="module-pane">{content}</div>
-    </ResizeSensor>
+    <div className="module-pane">
+      <div className="module-top-bar">
+        <ModulePicker
+          selectedModuleId={moduleId}
+          onSelectedModuleIdChange={onSelectedModuleIdChange}
+        />
+      </div>
+      {module && (
+        <div className="control-pane-container">
+          <ControlPane
+            querySource={querySource}
+            onUpdateParameterValues={setParameterValues}
+            parameters={module.parameters}
+            parameterValues={parameterValues}
+            onAddToSourceQueryAsColumn={onAddToSourceQueryAsColumn}
+            onAddToSourceQueryAsMeasure={onAddToSourceQueryAsMeasure}
+          />
+        </div>
+      )}
+      <ResizeSensor
+        onResize={entries => {
+          if (entries.length !== 1) return;
+          const newStage = new Stage(entries[0].contentRect.width, entries[0].contentRect.height);
+          if (newStage.equals(stage)) return;
+          setStage(newStage);
+        }}
+      >
+        <div className="module-inner-container">{content}</div>
+      </ResizeSensor>
+    </div>
   );
 };
