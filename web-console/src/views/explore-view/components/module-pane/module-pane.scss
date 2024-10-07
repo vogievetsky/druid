@@ -33,6 +33,11 @@ $control-pane-width: 240px;
     height: $tob-bar-height;
     border-bottom: 1px solid $dark-gray2;
     padding: 2px;
+    display: flex;
+
+    .bar-expander {
+      flex: 1;
+    }
   }
 
   .control-pane-container {

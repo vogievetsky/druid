@@ -26,21 +26,12 @@ import type { CancelToken } from 'axios';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore } from 'zustand';
 
 import { Loader } from '../../components';
 import { ShowValueDialog } from '../../dialogs/show-value-dialog/show-value-dialog';
 import { useHashAndLocalStorageHybridState, useQueryManager } from '../../hooks';
 import { Api, AppToaster } from '../../singletons';
-import {
-  DruidError,
-  isEmpty,
-  localStorageGetJson,
-  LocalStorageKeys,
-  localStorageSetJson,
-  mapRecord,
-  queryDruidSql,
-} from '../../utils';
+import { DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
 
 import {
   DroppableContainer,
@@ -52,21 +43,16 @@ import {
   SourceQueryPane,
 } from './components';
 import { ExploreState } from './explore-state';
-import { highlightStore } from './highlight-store/highlight-store';
 import type { Measure, ParameterValues } from './models';
 import { QuerySource } from './models';
 import { ModuleRepository } from './module-repository/module-repository';
 import { rewriteAggregate, rewriteMaxDataTime } from './query-macros';
 import type { Rename } from './utils';
-import { adjustTransferValue, normalizeType, QueryLog } from './utils';
+import { QueryLog } from './utils';
 
 import './explore-view.scss';
 
 const QUERY_LOG = new QueryLog();
-
-function getStickyParameterValuesForModule(moduleId: string): ParameterValues {
-  return localStorageGetJson(LocalStorageKeys.EXPLORE_STICKY)?.[moduleId] || {};
-}
 
 // ---------------------------------------
 
@@ -129,8 +115,6 @@ export const ExploreView = React.memo(function ExploreView() {
     },
   );
 
-  const { dropHighlight } = useStore(highlightStore);
-
   // -------------------------------------------------------
   // If no table selected, change to first table if possible
   async function initWithFirstTable() {
@@ -192,29 +176,6 @@ export const ExploreView = React.memo(function ExploreView() {
   function setParameterValues(newParameterValues: ParameterValues) {
     if (newParameterValues === parameterValues) return;
     setExploreState(exploreState.change({ parameterValues: newParameterValues }));
-  }
-
-  function resetParameterValues() {
-    setParameterValues(getStickyParameterValuesForModule(moduleId));
-  }
-
-  function updateParameterValues(newParameterValues: ParameterValues) {
-    // Evaluate sticky-ness
-    if (module) {
-      const currentExploreSticky = localStorageGetJson(LocalStorageKeys.EXPLORE_STICKY) || {};
-      const currentModuleSticky = currentExploreSticky[moduleId] || {};
-      const newModuleSticky = {
-        ...currentModuleSticky,
-        ...mapRecord(newParameterValues, (v, k) => (module.parameters[k]?.sticky ? v : undefined)),
-      };
-
-      localStorageSetJson(LocalStorageKeys.EXPLORE_STICKY, {
-        ...currentExploreSticky,
-        [moduleId]: isEmpty(newModuleSticky) ? undefined : newModuleSticky,
-      });
-    }
-
-    setParameterValues({ ...parameterValues, ...newParameterValues });
   }
 
   function setSource(source: SqlQuery | string, rename?: Rename) {
@@ -346,13 +307,6 @@ export const ExploreView = React.memo(function ExploreView() {
                       setShownText(QUERY_LOG.getFormatted());
                     }}
                   />
-                  <MenuItem
-                    icon={IconNames.RESET}
-                    text="Reset visualization parameters"
-                    onClick={() => {
-                      resetParameterValues();
-                    }}
-                  />
                   <MenuDivider />
                   <MenuItem
                     icon={IconNames.TRASH}
@@ -396,49 +350,12 @@ export const ExploreView = React.memo(function ExploreView() {
             ) : querySource ? (
               <ModulePane
                 moduleId={moduleId}
-                onSelectedModuleIdChange={newModuleId => {
-                  let newParameterValues = getStickyParameterValuesForModule(newModuleId);
-
-                  const oldModule = ModuleRepository.getModule(moduleId);
-                  const newModule = ModuleRepository.getModule(newModuleId);
-                  if (oldModule && newModule) {
-                    const oldModuleParameters = oldModule.parameters || {};
-                    const newModuleParameters = newModule.parameters || {};
-                    for (const paramName in oldModuleParameters) {
-                      const parameterValue = parameterValues[paramName];
-                      if (typeof parameterValue === 'undefined') continue;
-
-                      const oldParameterDefinition = oldModuleParameters[paramName];
-                      const transferGroup = oldParameterDefinition.transferGroup;
-                      if (typeof transferGroup !== 'string') continue;
-
-                      const normalizedType = normalizeType(oldParameterDefinition.type);
-                      const target = Object.entries(newModuleParameters).find(
-                        ([_, def]) =>
-                          def.transferGroup === transferGroup &&
-                          normalizeType(def.type) === normalizedType,
-                      );
-                      if (!target) continue;
-
-                      newParameterValues = {
-                        ...newParameterValues,
-                        [target[0]]: adjustTransferValue(
-                          parameterValue,
-                          oldParameterDefinition.type,
-                          target[1].type,
-                        ),
-                      };
-                    }
-                  }
-
-                  dropHighlight();
-                  setModuleId(newModuleId, newParameterValues);
-                }}
+                setModuleId={setModuleId}
                 querySource={querySource}
                 where={where}
                 setWhere={setWhere}
                 parameterValues={parameterValues}
-                setParameterValues={updateParameterValues}
+                setParameterValues={setParameterValues}
                 runSqlQuery={runSqlPlusQuery}
                 onAddToSourceQueryAsColumn={expression => {
                   if (!querySource) return;
@@ -467,16 +384,17 @@ export const ExploreView = React.memo(function ExploreView() {
               <Loader />
             ) : undefined}
           </DroppableContainer>
-          {shownText && (
-            <ShowValueDialog
-              title="Query history"
-              str={shownText}
-              onClose={() => {
-                setShownText(undefined);
-              }}
-            />
-          )}
+          <div className="side-bar" />
         </div>
+      )}
+      {shownText && (
+        <ShowValueDialog
+          title="Query history"
+          str={shownText}
+          onClose={() => {
+            setShownText(undefined);
+          }}
+        />
       )}
       <HighlightBubble referenceContainer={containerRef.current} />
     </div>

@@ -112,6 +112,11 @@ $resources-width: 240px;
         height: 100%;
       }
     }
+
+    & > .side-bar {
+      grid-area: sid;
+      @include card-like;
+    }
   }
 }
 
