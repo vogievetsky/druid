@@ -43,6 +43,7 @@ import {
   fitFilterPattern,
   SqlExpression,
 } from '@druid-toolkit/query';
+import type { CancelToken } from 'axios';
 import type { JSX } from 'react';
 import React, { useState } from 'react';
 
@@ -110,7 +111,8 @@ export interface FilterMenuProps {
   initPattern?: FilterPattern;
   onPatternChange(newPattern: FilterPattern): void;
   onClose(): void;
-  runSqlQuery(query: string | SqlQuery): Promise<QueryResult>;
+  runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;
+  timeBounds?: [Date, Date];
   onAddToSourceQueryAsColumn?(expression: SqlExpression): void;
   onMoveToSourceQueryAsClause?(expression: SqlExpression): void;
 }
@@ -123,6 +125,7 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
     onPatternChange,
     onClose,
     runSqlQuery,
+    timeBounds,
     onAddToSourceQueryAsColumn,
     onMoveToSourceQueryAsClause,
   } = props;
@@ -205,6 +208,7 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
           querySource={querySource}
           filterPattern={pattern}
           setFilterPattern={setPattern}
+          timeBounds={timeBounds}
         />
       );
       break;
@@ -300,11 +304,16 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
                   <HTMLSelect
                     className="type-selector"
                     value={pattern.type}
-                    onChange={e =>
-                      setPattern(
-                        changeFilterPatternType(pattern, e.target.value as FilterPatternType),
-                      )
-                    }
+                    onChange={e => {
+                      let newPattern = changeFilterPatternType(
+                        pattern,
+                        e.target.value as FilterPatternType,
+                      );
+                      if (newPattern.type === 'timeInterval' && timeBounds) {
+                        newPattern = { ...newPattern, start: timeBounds[0], end: timeBounds[1] };
+                      }
+                      setPattern(newPattern);
+                    }}
                   >
                     {getPattenTypesForColumn(
                       querySource.columns.find(c => c.name === pattern.column),

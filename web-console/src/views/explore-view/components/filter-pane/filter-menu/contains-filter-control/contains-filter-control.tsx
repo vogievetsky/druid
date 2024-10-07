@@ -20,6 +20,7 @@ import { FormGroup, InputGroup, Menu, MenuItem } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import type { ContainsFilterPattern, QueryResult, SqlQuery } from '@druid-toolkit/query';
 import { C, F, filterPatternToExpression, SqlExpression } from '@druid-toolkit/query';
+import type { CancelToken } from 'axios';
 import React, { useMemo } from 'react';
 
 import { useQueryManager } from '../../../../../../hooks';
@@ -32,7 +33,7 @@ export interface ContainsFilterControlProps {
   filter: SqlExpression | undefined;
   filterPattern: ContainsFilterPattern;
   setFilterPattern(filterPattern: ContainsFilterPattern): void;
-  runSqlQuery(query: string | SqlQuery): Promise<QueryResult>;
+  runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;
 }
 
 export const ContainsFilterControl = React.memo(function ContainsFilterControl(
@@ -62,8 +63,8 @@ export const ContainsFilterControl = React.memo(function ContainsFilterControl(
     query: previewQuery,
     debounceIdle: 100,
     debounceLoading: 500,
-    processQuery: async query => {
-      const vs = await runSqlQuery(query);
+    processQuery: async (query, cancelToken) => {
+      const vs = await runSqlQuery(query, cancelToken);
       return (vs.getColumnByName('c') || []).map(String);
     },
   });

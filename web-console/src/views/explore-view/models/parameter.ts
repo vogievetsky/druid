@@ -145,7 +145,7 @@ export function getModuleOptionLabel(
 }
 
 export type ParameterValues = Readonly<Record<string, any>>;
-export type Parameters = Record<string, ParameterDefinition>;
+export type Parameters = Readonly<Record<string, ParameterDefinition>>;
 
 // -----------------------------------------------------
 
