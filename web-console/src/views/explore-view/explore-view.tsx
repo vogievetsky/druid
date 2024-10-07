@@ -42,9 +42,8 @@ import {
   SourcePane,
   SourceQueryPane,
 } from './components';
-import { ExploreState } from './explore-state';
 import type { Measure, ParameterValues } from './models';
-import { QuerySource } from './models';
+import { ExploreState, QuerySource } from './models';
 import { ModuleRepository } from './module-repository/module-repository';
 import { rewriteAggregate, rewriteMaxDataTime } from './query-macros';
 import type { Rename } from './utils';

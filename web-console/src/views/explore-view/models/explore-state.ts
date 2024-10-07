@@ -24,18 +24,16 @@ import {
   SqlQuery,
 } from '@druid-toolkit/query';
 
-import { isEmpty } from '../../utils';
+import { isEmpty } from '../../../utils';
+import { ModuleRepository } from '../module-repository/module-repository';
+import type { Rename } from '../utils';
+import { renameColumnsInExpression } from '../utils';
 
-import type { Measure, ParameterValues } from './models';
-import {
-  ExpressionMeta,
-  inflateParameterValues,
-  QuerySource,
-  renameColumnsInParameterValues,
-} from './models';
-import { ModuleRepository } from './module-repository/module-repository';
-import type { Rename } from './utils';
-import { renameColumnsInExpression } from './utils';
+import { ExpressionMeta } from './expression-meta';
+import type { Measure } from './measure';
+import type { ParameterValues } from './parameter';
+import { inflateParameterValues, renameColumnsInParameterValues } from './parameter';
+import { QuerySource } from './query-source';
 
 interface ExploreStateValue {
   source: string;

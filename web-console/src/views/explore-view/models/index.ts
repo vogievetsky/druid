@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+export * from './explore-state';
 export * from './expression-meta';
 export * from './highlight';
 export * from './measure';
