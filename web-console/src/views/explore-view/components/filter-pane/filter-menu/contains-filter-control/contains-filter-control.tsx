@@ -30,7 +30,7 @@ import './contains-filter-control.scss';
 
 export interface ContainsFilterControlProps {
   querySource: QuerySource;
-  filter: SqlExpression | undefined;
+  filter: SqlExpression;
   filterPattern: ContainsFilterPattern;
   setFilterPattern(filterPattern: ContainsFilterPattern): void;
   runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;

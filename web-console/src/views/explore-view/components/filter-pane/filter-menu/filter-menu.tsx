@@ -41,6 +41,7 @@ import {
   changeFilterPatternType,
   filterPatternToExpression,
   fitFilterPattern,
+  L,
   SqlExpression,
 } from '@druid-toolkit/query';
 import type { CancelToken } from 'axios';
@@ -150,7 +151,7 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
       cont = (
         <ValuesFilterControl
           querySource={querySource}
-          filter={filter.removeColumnFromAnd(pattern.column)}
+          filter={filter.removeColumnFromAnd(pattern.column) || L.TRUE}
           filterPattern={pattern}
           setFilterPattern={setPattern}
           runSqlQuery={runSqlQuery}
@@ -162,7 +163,7 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
       cont = (
         <ContainsFilterControl
           querySource={querySource}
-          filter={filter.removeColumnFromAnd(pattern.column)}
+          filter={filter.removeColumnFromAnd(pattern.column) || L.TRUE}
           filterPattern={pattern}
           setFilterPattern={setPattern}
           runSqlQuery={runSqlQuery}
@@ -174,7 +175,7 @@ export const FilterMenu = React.memo(function FilterMenu(props: FilterMenuProps)
       cont = (
         <RegexpFilterControl
           querySource={querySource}
-          filter={filter.removeColumnFromAnd(pattern.column)}
+          filter={filter.removeColumnFromAnd(pattern.column) || L.TRUE}
           filterPattern={pattern}
           setFilterPattern={setPattern}
           runSqlQuery={runSqlQuery}

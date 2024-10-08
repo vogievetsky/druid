@@ -39,7 +39,7 @@ function regexpIssue(possibleRegexp: string): string | undefined {
 
 export interface RegexpFilterControlProps {
   querySource: QuerySource;
-  filter: SqlExpression | undefined;
+  filter: SqlExpression;
   filterPattern: RegexpFilterPattern;
   setFilterPattern(filterPattern: RegexpFilterPattern): void;
   runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;

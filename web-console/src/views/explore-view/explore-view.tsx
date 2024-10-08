@@ -45,6 +45,7 @@ import { DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
 import {
   DroppableContainer,
   FilterPane,
+  HelperTable,
   HighlightBubble,
   ModulePane,
   ResourcePane,
@@ -430,8 +431,19 @@ export const ExploreView = React.memo(function ExploreView() {
           ) : undefined}
           {showHelpers && (
             <div className="helper-bar">
-              <p>Helper bar</p>
-              <p>ToDo: fill me in!</p>
+              {querySource && (
+                <div className="helper-tables">
+                  {querySource.getHelperExpressions().map((ex, i) => (
+                    <HelperTable
+                      key={i}
+                      querySource={querySource}
+                      where={where}
+                      expression={ex}
+                      runSqlQuery={runSqlPlusQuery}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

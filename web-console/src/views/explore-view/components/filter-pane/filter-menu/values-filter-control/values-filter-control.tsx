@@ -28,13 +28,13 @@ import { useQueryManager } from '../../../../../../hooks';
 import { caseInsensitiveContains, filterMap } from '../../../../../../utils';
 import type { QuerySource } from '../../../../models';
 import { toggle } from '../../../../utils';
-import { ColumnValue } from '../../column-value/column-value';
+import { ColumnValue } from '../../../column-value/column-value';
 
 import './values-filter-control.scss';
 
 export interface ValuesFilterControlProps {
   querySource: QuerySource;
-  filter: SqlExpression | undefined;
+  filter: SqlExpression;
   filterPattern: ValuesFilterPattern;
   setFilterPattern(filterPattern: ValuesFilterPattern): void;
   runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;

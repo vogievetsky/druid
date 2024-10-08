@@ -148,7 +148,15 @@ $resources-width: 240px;
     & > .helper-bar {
       grid-area: hlp;
       @include card-like;
-      padding: 12px;
+      position: relative;
+
+      .helper-tables {
+        position: absolute;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
     }
   }
 }

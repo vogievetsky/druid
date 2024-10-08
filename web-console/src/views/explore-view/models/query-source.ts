@@ -379,4 +379,8 @@ export class QuerySource {
 
     return expressionWithinColumns(m.expression, this.columns);
   }
+
+  public getHelperExpressions(): ExpressionMeta[] {
+    return this.columns.slice(1, 4).map(c => ExpressionMeta.fromColumn(c));
+  }
 }
