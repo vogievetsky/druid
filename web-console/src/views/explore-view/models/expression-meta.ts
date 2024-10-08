@@ -94,7 +94,7 @@ export class ExpressionMeta {
     return this.change({ expression });
   }
 
-  public renameInExpression(rename: Map<string, string>): this {
+  public applyRename(rename: Map<string, string>): this {
     const renamedExpression = renameColumnsInExpression(this.expression, rename);
     if (renamedExpression === this.expression) return this;
     return this.changeExpression(renamedExpression);

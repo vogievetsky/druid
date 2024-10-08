@@ -40,10 +40,11 @@ export interface HelperTableProps {
   where: SqlExpression;
   expression: ExpressionMeta;
   runSqlQuery(query: string | SqlQuery, cancelToken?: CancelToken): Promise<QueryResult>;
+  onDelete(): void;
 }
 
 export const HelperTable = React.memo(function HelperTable(props: HelperTableProps) {
-  const { querySource, where, expression, runSqlQuery } = props;
+  const { querySource, where, expression, runSqlQuery, onDelete } = props;
   const [showSearch] = useState(false);
   const [searchString, setSearchString] = useState('');
 
@@ -82,8 +83,8 @@ export const HelperTable = React.memo(function HelperTable(props: HelperTablePro
       <div className="helper-header">
         <div className="helper-title">{expression.name}</div>
         <ButtonGroup minimal>
-          <Button icon={IconNames.MORE} minimal />
-          <Button icon={IconNames.CROSS} minimal />
+          <Button icon={IconNames.SEARCH} minimal />
+          <Button icon={IconNames.CROSS} minimal onClick={onDelete} />
         </ButtonGroup>
       </div>
       {showSearch && (

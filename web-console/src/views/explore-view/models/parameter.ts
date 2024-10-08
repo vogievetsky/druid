@@ -258,10 +258,10 @@ function renameColumnsInParameterValue(
   if (typeof parameterValue !== 'undefined') {
     switch (parameter.type) {
       case 'expression':
-        return (parameterValue as ExpressionMeta).renameInExpression(rename);
+        return (parameterValue as ExpressionMeta).applyRename(rename);
 
       case 'measure':
-        return (parameterValue as Measure).renameInExpression(rename);
+        return (parameterValue as Measure).applyRename(rename);
 
       case 'expressions':
       case 'measures':

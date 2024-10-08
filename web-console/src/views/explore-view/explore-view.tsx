@@ -53,7 +53,7 @@ import {
   SourceQueryPane,
 } from './components';
 import type { Measure, ModuleState } from './models';
-import { ExploreState, QuerySource } from './models';
+import { ExploreState, ExpressionMeta, QuerySource } from './models';
 import { rewriteAggregate, rewriteMaxDataTime } from './query-macros';
 import type { Rename } from './utils';
 import { QueryLog } from './utils';
@@ -430,21 +430,27 @@ export const ExploreView = React.memo(function ExploreView() {
             <Loader className="query-source-loader" loadingText="Introspecting query source" />
           ) : undefined}
           {showHelpers && (
-            <div className="helper-bar">
+            <DroppableContainer
+              className="helper-bar"
+              onDropColumn={c =>
+                setExploreState(exploreState.addHelper(ExpressionMeta.fromColumn(c)))
+              }
+            >
               {querySource && (
                 <div className="helper-tables">
-                  {querySource.getHelperExpressions().map((ex, i) => (
+                  {exploreState.helpers.map((ex, i) => (
                     <HelperTable
                       key={i}
                       querySource={querySource}
                       where={where}
                       expression={ex}
                       runSqlQuery={runSqlPlusQuery}
+                      onDelete={() => setExploreState(exploreState.removeHelper(i))}
                     />
                   ))}
                 </div>
               )}
-            </div>
+            </DroppableContainer>
           )}
         </div>
       )}

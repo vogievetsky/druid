@@ -28,6 +28,7 @@ import { changeByIndex, filterMapIfChanged } from '../../../utils';
 import type { Rename } from '../utils';
 import { renameColumnsInExpression } from '../utils';
 
+import { ExpressionMeta } from './expression-meta';
 import type { Measure } from './measure';
 import { ModuleState } from './module-state';
 import { QuerySource } from './query-source';
@@ -40,6 +41,7 @@ interface ExploreStateValue {
   where: SqlExpression;
   moduleStates: ReadonlyArray<ModuleState>;
   layout?: ExploreModuleLayout;
+  helpers?: ReadonlyArray<ExpressionMeta>;
   showHelpers?: boolean;
 }
 
@@ -57,6 +59,7 @@ export class ExploreState {
       ...js,
       where: SqlExpression.maybeParse(js.where) || SqlLiteral.TRUE,
       moduleStates: moduleStatesJS.map(ModuleState.fromJS),
+      helpers: ExpressionMeta.inflateArray(js.helpers || []),
     });
   }
 
@@ -65,6 +68,7 @@ export class ExploreState {
   public readonly where: SqlExpression;
   public readonly moduleStates: ReadonlyArray<ModuleState>;
   public readonly layout?: ExploreModuleLayout;
+  public readonly helpers: ReadonlyArray<ExpressionMeta>;
   public readonly showHelpers: boolean;
 
   public readonly parsedSource: SqlQuery | undefined;
@@ -76,6 +80,7 @@ export class ExploreState {
     this.where = value.where;
     this.moduleStates = value.moduleStates;
     this.layout = value.layout;
+    this.helpers = value.helpers || [];
     this.showHelpers = Boolean(value.showHelpers);
 
     if (this.source === '') {
@@ -97,6 +102,7 @@ export class ExploreState {
       layout: this.layout,
     };
     if (this.showSourceQuery) value.showSourceQuery = true;
+    if (this.helpers.length) value.helpers = this.helpers;
     if (this.showHelpers) value.showHelpers = true;
     return value;
   }
@@ -116,6 +122,7 @@ export class ExploreState {
     if (rename) {
       toChange.where = renameColumnsInExpression(this.where, rename);
       toChange.moduleStates = this.moduleStates.map(moduleState => moduleState.applyRename(rename));
+      toChange.helpers = this.helpers.map(helper => helper.applyRename(rename));
     }
 
     return this.change(toChange);
@@ -218,7 +225,12 @@ export class ExploreState {
   }
 
   public isInitState(): boolean {
-    return this.source === '' && this.where instanceof SqlLiteral && !this.moduleStates.length;
+    return (
+      this.source === '' &&
+      this.where instanceof SqlLiteral &&
+      !this.moduleStates.length &&
+      !this.helpers.length
+    );
   }
 
   public duplicateLastModule(): ExploreState {
@@ -227,6 +239,14 @@ export class ExploreState {
     return this.change({
       moduleStates: moduleStates.concat(moduleStates[moduleStates.length - 1]),
     });
+  }
+
+  public removeHelper(index: number): ExploreState {
+    return this.change({ helpers: changeByIndex(this.helpers, index, () => undefined) });
+  }
+
+  public addHelper(helper: ExpressionMeta): ExploreState {
+    return this.change({ helpers: this.helpers.concat(helper) });
   }
 }
 
