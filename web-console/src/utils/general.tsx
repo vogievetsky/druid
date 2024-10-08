@@ -414,7 +414,10 @@ export function filterMap<T, Q>(xs: readonly T[], f: (x: T, i: number) => Q | un
   return xs.map(f).filter((x: Q | undefined) => typeof x !== 'undefined') as Q[];
 }
 
-export function filterMapIfChanged<T>(xs: T[], f: (x: T, i: number) => T | undefined): T[] {
+export function filterMapIfChanged<T>(
+  xs: readonly T[],
+  f: (x: T, i: number) => T | undefined,
+): readonly T[] {
   let changed = false;
   const newXs = filterMap(xs, (x, i) => {
     const newX = f(x, i);

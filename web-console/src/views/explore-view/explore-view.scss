@@ -62,12 +62,22 @@ $resources-width: 240px;
     top: 0;
 
     display: grid;
-    grid-template-columns: $resources-width 1fr $resources-width;
-    grid-template-rows: auto 1fr;
-    grid-template-areas:
-      'src fil fil'
-      'res mod sid';
     gap: 8px;
+    grid-template-rows: auto 1fr;
+
+    &.show-helpers {
+      grid-template-columns: $resources-width 1fr $resources-width;
+      grid-template-areas:
+        'src fil fil'
+        'res mod hlp';
+    }
+
+    &.no-helpers {
+      grid-template-columns: $resources-width 1fr;
+      grid-template-areas:
+        'src fil'
+        'res mod';
+    }
 
     & > .source-pane {
       grid-area: src;
@@ -81,7 +91,7 @@ $resources-width: 240px;
       @include card-like;
       padding-right: 46px;
 
-      .more-button {
+      .action-buttons {
         position: absolute;
         right: 8px;
         bottom: 8px;
@@ -105,7 +115,12 @@ $resources-width: 240px;
       }
     }
 
-    & > .module-container {
+    & > .query-source-error,
+    & > .query-source-loader {
+      grid-area: mod;
+    }
+
+    & > .modules-pane {
       grid-area: mod;
 
       .module-pane {
@@ -113,8 +128,8 @@ $resources-width: 240px;
       }
     }
 
-    & > .side-bar {
-      grid-area: sid;
+    & > .helper-bar {
+      grid-area: hlp;
       @include card-like;
     }
   }

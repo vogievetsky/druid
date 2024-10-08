@@ -21,6 +21,7 @@ export * from './expression-meta';
 export * from './highlight';
 export * from './measure';
 export * from './measure-pattern';
+export * from './module-state';
 export * from './parameter';
 export * from './query-source';
 export * from './stage';

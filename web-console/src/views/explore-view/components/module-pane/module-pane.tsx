@@ -26,7 +26,8 @@ import {
   ResizeSensor,
 } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
-import type { QueryResult, SqlExpression, SqlQuery } from '@druid-toolkit/query';
+import type { Column, QueryResult, SqlExpression, SqlQuery } from '@druid-toolkit/query';
+import classNames from 'classnames';
 import React, { useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 
@@ -38,11 +39,18 @@ import {
   mapRecord,
 } from '../../../../utils';
 import { highlightStore } from '../../highlight-store/highlight-store';
-import type { Measure, ParameterDefinition, ParameterValues, QuerySource } from '../../models';
+import type {
+  Measure,
+  ModuleState,
+  ParameterDefinition,
+  ParameterValues,
+  QuerySource,
+} from '../../models';
 import { effectiveParameterDefault, Stage } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { adjustTransferValue, normalizeType } from '../../utils';
 import { ControlPane } from '../control-pane/control-pane';
+import { DroppableContainer } from '../droppable-container/droppable-container';
 import { Issue } from '../issue/issue';
 import { ModulePicker } from '../module-picker/module-picker';
 
@@ -66,14 +74,12 @@ function fillInDefaults(
 }
 
 export interface ModulePaneProps {
-  moduleId: string;
-  setModuleId(moduleId: string, parameterValues: ParameterValues): void;
+  moduleState: ModuleState;
+  setModuleState(moduleState: ModuleState): void;
   querySource: QuerySource;
   where: SqlExpression;
   setWhere(where: SqlExpression): void;
 
-  parameterValues: ParameterValues;
-  setParameterValues(parameters: ParameterValues): void;
   runSqlQuery(query: string | SqlQuery): Promise<QueryResult>;
 
   onAddToSourceQueryAsColumn?(expression: SqlExpression): void;
@@ -82,17 +88,16 @@ export interface ModulePaneProps {
 
 export const ModulePane = function ModulePane(props: ModulePaneProps) {
   const {
-    moduleId,
-    setModuleId,
+    moduleState,
+    setModuleState,
     querySource,
     where,
     setWhere,
-    parameterValues,
-    setParameterValues,
     runSqlQuery,
     onAddToSourceQueryAsColumn,
     onAddToSourceQueryAsMeasure,
   } = props;
+  const { moduleId, parameterValues, showControls } = moduleState;
   const [stage, setStage] = useState<Stage | undefined>();
 
   const { dropHighlight } = useStore(highlightStore);
@@ -115,7 +120,9 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
       });
     }
 
-    setParameterValues({ ...parameterValues, ...newParameterValues });
+    setModuleState(
+      moduleState.changeParameterValues({ ...parameterValues, ...newParameterValues }),
+    );
   }
 
   const parameterValuesWithDefaults = useMemo(() => {
@@ -143,8 +150,16 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
     content = <Issue issue={`Unknown module id: ${moduleId}`} />;
   }
 
+  function onShowColumn(column: Column) {
+    setModuleState(moduleState.applyShowColumn(column));
+  }
+
+  function onShowMeasure(measure: Measure) {
+    setModuleState(moduleState.applyShowMeasure(measure));
+  }
+
   return (
-    <div className="module-pane">
+    <div className={classNames('module-pane', showControls ? 'show-controls' : 'no-controls')}>
       <div className="module-top-bar">
         <ModulePicker
           selectedModuleId={moduleId}
@@ -184,7 +199,10 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
             }
 
             dropHighlight();
-            setModuleId(newModuleId, newParameterValues);
+
+            setModuleState(
+              moduleState.change({ moduleId: newModuleId, parameterValues: newParameterValues }),
+            );
           }}
         />
         <div className="bar-expander" />
@@ -197,7 +215,11 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
                   icon={IconNames.RESET}
                   text="Reset visualization parameters"
                   onClick={() => {
-                    setParameterValues(getStickyParameterValuesForModule(moduleId));
+                    setModuleState(
+                      moduleState.changeParameterValues(
+                        getStickyParameterValuesForModule(moduleId),
+                      ),
+                    );
                   }}
                 />
               </Menu>
@@ -205,11 +227,14 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
           >
             <Button icon={IconNames.MORE} minimal />
           </Popover>
-
-          <Button icon={IconNames.PANEL_STATS} minimal />
+          <Button
+            icon={IconNames.PANEL_STATS}
+            minimal
+            onClick={() => setModuleState(moduleState.change({ showControls: !showControls }))}
+          />
         </ButtonGroup>
       </div>
-      {module && (
+      {showControls && module && (
         <div className="control-pane-container">
           <ControlPane
             querySource={querySource}
@@ -229,7 +254,13 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
           setStage(newStage);
         }}
       >
-        <div className="module-inner-container">{content}</div>
+        <DroppableContainer
+          className="module-inner-container"
+          onDropColumn={onShowColumn}
+          onDropMeasure={onShowMeasure}
+        >
+          {content}
+        </DroppableContainer>
       </ResizeSensor>
     </div>
   );

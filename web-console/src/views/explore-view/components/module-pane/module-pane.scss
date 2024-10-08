@@ -50,12 +50,16 @@ $control-pane-width: 240px;
     padding: 8px;
   }
 
+  &.show-controls .module-inner-container {
+    right: $control-pane-width + 1;
+  }
+
   .module-inner-container {
     position: absolute;
     top: $tob-bar-height + 1;
     bottom: 0;
     left: 0;
-    right: $control-pane-width + 1;
+    right: 0;
 
     & > .module {
       width: 100%;

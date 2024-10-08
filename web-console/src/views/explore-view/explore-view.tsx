@@ -18,7 +18,16 @@
 
 import './modules';
 
-import { Button, Intent, Menu, MenuDivider, MenuItem, Popover, Position } from '@blueprintjs/core';
+import {
+  Button,
+  ButtonGroup,
+  Intent,
+  Menu,
+  MenuDivider,
+  MenuItem,
+  Popover,
+  Position,
+} from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import type { Column, QueryResult, SqlExpression } from '@druid-toolkit/query';
 import { QueryRunner, SqlQuery } from '@druid-toolkit/query';
@@ -34,7 +43,6 @@ import { Api, AppToaster } from '../../singletons';
 import { DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
 
 import {
-  DroppableContainer,
   FilterPane,
   HighlightBubble,
   ModulePane,
@@ -42,9 +50,8 @@ import {
   SourcePane,
   SourceQueryPane,
 } from './components';
-import type { Measure, ParameterValues } from './models';
+import type { Measure, ModuleState } from './models';
 import { ExploreState, QuerySource } from './models';
-import { ModuleRepository } from './module-repository/module-repository';
 import { rewriteAggregate, rewriteMaxDataTime } from './query-macros';
 import type { Rename } from './utils';
 import { QueryLog } from './utils';
@@ -135,9 +142,8 @@ export const ExploreView = React.memo(function ExploreView() {
 
   // -------------------------------------------------------
 
-  const { moduleId, source, parsedSource, parseError, where, parameterValues, showSourceQuery } =
+  const { source, parsedSource, parseError, where, showSourceQuery, moduleStates, showHelpers } =
     exploreState;
-  const module = ModuleRepository.getModule(moduleId);
 
   const [querySourceState] = useQueryManager<string, QuerySource>({
     query: parsedSource ? String(parsedSource) : undefined,
@@ -160,21 +166,15 @@ export const ExploreView = React.memo(function ExploreView() {
 
   useEffect(() => {
     const querySource = querySourceState.data;
-    if (!querySource || !module) return;
+    if (!querySource) return;
     const newExploreState = exploreState.restrictToQuerySource(querySource);
     if (exploreState !== newExploreState) {
       setExploreState(newExploreState);
     }
-  }, [module, parameterValues, querySourceState.data]);
+  }, [querySourceState.data]);
 
-  function setModuleId(moduleId: string, parameterValues: ParameterValues) {
-    if (exploreState.moduleId === moduleId) return;
-    setExploreState(exploreState.change({ moduleId, parameterValues }));
-  }
-
-  function setParameterValues(newParameterValues: ParameterValues) {
-    if (newParameterValues === parameterValues) return;
-    setExploreState(exploreState.change({ parameterValues: newParameterValues }));
+  function setModuleState(index: number, moduleState: ModuleState) {
+    setExploreState(exploreState.changeModuleState(index, moduleState));
   }
 
   function setSource(source: SqlQuery | string, rename?: Rename) {
@@ -217,7 +217,11 @@ export const ExploreView = React.memo(function ExploreView() {
   }, [querySource]);
 
   return (
-    <div className={classNames('explore-view', { 'show-source-query': showSourceQuery })}>
+    <div
+      className={classNames('explore-view', {
+        'show-source-query': showSourceQuery,
+      })}
+    >
       {showSourceQuery && (
         <SourceQueryPane
           source={source}
@@ -245,7 +249,9 @@ export const ExploreView = React.memo(function ExploreView() {
         </div>
       )}
       {parsedSource && (
-        <div className="explore-container">
+        <div
+          className={classNames('explore-container', showHelpers ? 'show-helpers' : 'no-helpers')}
+        >
           <SourcePane
             selectedSource={parsedSource}
             onSelectTable={setTable}
@@ -282,46 +288,52 @@ export const ExploreView = React.memo(function ExploreView() {
                 );
               }}
             />
-            <Popover
-              className="more-button"
-              position={Position.BOTTOM_RIGHT}
-              content={
-                <Menu>
-                  <MenuItem
-                    icon={IconNames.DUPLICATE}
-                    text="Copy last query"
-                    disabled={!QUERY_LOG.length()}
-                    onClick={() => {
-                      copy(QUERY_LOG.getLastQuery()!, { format: 'text/plain' });
-                      AppToaster.show({
-                        message: `Copied query to clipboard`,
-                        intent: Intent.SUCCESS,
-                      });
-                    }}
-                  />
-                  <MenuItem
-                    icon={IconNames.HISTORY}
-                    text="Show query log"
-                    onClick={() => {
-                      setShownText(QUERY_LOG.getFormatted());
-                    }}
-                  />
-                  <MenuDivider />
-                  <MenuItem
-                    icon={IconNames.TRASH}
-                    text="Clear all view state"
-                    intent={Intent.DANGER}
-                    onClick={() => {
-                      localStorage.removeItem(LocalStorageKeys.EXPLORE_STATE);
-                      location.hash = '#explore';
-                      location.reload();
-                    }}
-                  />
-                </Menu>
-              }
-            >
-              <Button minimal icon={IconNames.MORE} />
-            </Popover>
+            <ButtonGroup className="action-buttons">
+              <Popover
+                position={Position.BOTTOM_RIGHT}
+                content={
+                  <Menu>
+                    <MenuItem
+                      icon={IconNames.DUPLICATE}
+                      text="Copy last query"
+                      disabled={!QUERY_LOG.length()}
+                      onClick={() => {
+                        copy(QUERY_LOG.getLastQuery()!, { format: 'text/plain' });
+                        AppToaster.show({
+                          message: `Copied query to clipboard`,
+                          intent: Intent.SUCCESS,
+                        });
+                      }}
+                    />
+                    <MenuItem
+                      icon={IconNames.HISTORY}
+                      text="Show query log"
+                      onClick={() => {
+                        setShownText(QUERY_LOG.getFormatted());
+                      }}
+                    />
+                    <MenuDivider />
+                    <MenuItem
+                      icon={IconNames.TRASH}
+                      text="Clear all view state"
+                      intent={Intent.DANGER}
+                      onClick={() => {
+                        localStorage.removeItem(LocalStorageKeys.EXPLORE_STATE);
+                        location.hash = '#explore';
+                        location.reload();
+                      }}
+                    />
+                  </Menu>
+                }
+              >
+                <Button minimal icon={IconNames.MORE} />
+              </Popover>
+              <Button
+                icon={IconNames.PANEL_STATS}
+                minimal
+                onClick={() => setExploreState(exploreState.change({ showHelpers: !showHelpers }))}
+              />
+            </ButtonGroup>
           </div>
           <div className="resource-pane-cnt">
             {!querySource && querySourceState.loading && 'Loading...'}
@@ -338,52 +350,48 @@ export const ExploreView = React.memo(function ExploreView() {
               />
             )}
           </div>
-          <DroppableContainer
-            className="module-container"
-            ref={containerRef}
-            onDropColumn={onShowColumn}
-            onDropMeasure={onShowMeasure}
-          >
-            {querySourceState.error ? (
-              <div className="error-display">{querySourceState.getErrorMessage()}</div>
-            ) : querySource ? (
-              <ModulePane
-                moduleId={moduleId}
-                setModuleId={setModuleId}
-                querySource={querySource}
-                where={where}
-                setWhere={setWhere}
-                parameterValues={parameterValues}
-                setParameterValues={setParameterValues}
-                runSqlQuery={runSqlPlusQuery}
-                onAddToSourceQueryAsColumn={expression => {
-                  if (!querySource) return;
-                  setExploreState(
-                    exploreState.changeSource(
-                      querySource.addColumn(querySource.transformToBaseColumns(expression)),
-                      undefined,
-                    ),
-                  );
-                }}
-                onAddToSourceQueryAsMeasure={measure => {
-                  if (!querySource) return;
-                  setExploreState(
-                    exploreState.changeSource(
-                      querySource.addMeasure(
-                        measure.changeExpression(
-                          querySource.transformToBaseColumns(measure.expression),
-                        ),
+          {querySourceState.error ? (
+            <div className="query-source-error">{querySourceState.getErrorMessage()}</div>
+          ) : querySource ? (
+            <div className="modules-pane" ref={containerRef}>
+              {moduleStates.map((moduleState, i) => (
+                <ModulePane
+                  key={i}
+                  moduleState={moduleState}
+                  setModuleState={moduleState => setModuleState(i, moduleState)}
+                  querySource={querySource}
+                  where={where}
+                  setWhere={setWhere}
+                  runSqlQuery={runSqlPlusQuery}
+                  onAddToSourceQueryAsColumn={expression => {
+                    if (!querySource) return;
+                    setExploreState(
+                      exploreState.changeSource(
+                        querySource.addColumn(querySource.transformToBaseColumns(expression)),
+                        undefined,
                       ),
-                      undefined,
-                    ),
-                  );
-                }}
-              />
-            ) : querySourceState.loading ? (
-              <Loader />
-            ) : undefined}
-          </DroppableContainer>
-          <div className="side-bar" />
+                    );
+                  }}
+                  onAddToSourceQueryAsMeasure={measure => {
+                    if (!querySource) return;
+                    setExploreState(
+                      exploreState.changeSource(
+                        querySource.addMeasure(
+                          measure.changeExpression(
+                            querySource.transformToBaseColumns(measure.expression),
+                          ),
+                        ),
+                        undefined,
+                      ),
+                    );
+                  }}
+                />
+              ))}
+            </div>
+          ) : querySourceState.loading ? (
+            <Loader className="query-source-loader" loadingText="Introspecting query source" />
+          ) : undefined}
+          {showHelpers && <div className="helper-bar" />}
         </div>
       )}
       {shownText && (

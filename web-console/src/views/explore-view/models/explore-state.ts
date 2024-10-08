@@ -24,45 +24,44 @@ import {
   SqlQuery,
 } from '@druid-toolkit/query';
 
-import { isEmpty } from '../../../utils';
-import { ModuleRepository } from '../module-repository/module-repository';
+import { changeByIndex, filterMapIfChanged } from '../../../utils';
 import type { Rename } from '../utils';
 import { renameColumnsInExpression } from '../utils';
 
-import { ExpressionMeta } from './expression-meta';
 import type { Measure } from './measure';
-import type { ParameterValues } from './parameter';
-import { inflateParameterValues, renameColumnsInParameterValues } from './parameter';
+import { ModuleState } from './module-state';
 import { QuerySource } from './query-source';
 
 interface ExploreStateValue {
   source: string;
   showSourceQuery?: boolean;
   where: SqlExpression;
-  moduleId: string;
-  parameterValues: ParameterValues;
+  moduleStates: ReadonlyArray<ModuleState>;
+  showHelpers?: boolean;
 }
 
 export class ExploreState {
   static DEFAULT_STATE: ExploreState;
 
   static fromJS(js: any) {
-    const inflatedParameterValues = inflateParameterValues(
-      js.parameterValues,
-      ModuleRepository.getModule(js.moduleId)?.parameters || {},
-    );
+    let moduleStatesJS: any[] = [];
+    if (Array.isArray(js.moduleStates)) {
+      moduleStatesJS = js.moduleStates;
+    } else if (js.moduleId && js.parameterValues) {
+      moduleStatesJS = [js];
+    }
     return new ExploreState({
       ...js,
       where: SqlExpression.maybeParse(js.where) || SqlLiteral.TRUE,
-      parameterValues: inflatedParameterValues,
+      moduleStates: moduleStatesJS.map(ModuleState.fromJS),
     });
   }
 
   public readonly source: string;
   public readonly showSourceQuery: boolean;
   public readonly where: SqlExpression;
-  public readonly moduleId: string;
-  public readonly parameterValues: ParameterValues;
+  public readonly moduleStates: ReadonlyArray<ModuleState>;
+  public readonly showHelpers: boolean;
 
   public readonly parsedSource: SqlQuery | undefined;
   public readonly parseError: string | undefined;
@@ -71,8 +70,8 @@ export class ExploreState {
     this.source = value.source;
     this.showSourceQuery = Boolean(value.showSourceQuery);
     this.where = value.where;
-    this.moduleId = value.moduleId;
-    this.parameterValues = value.parameterValues;
+    this.moduleStates = value.moduleStates;
+    this.showHelpers = Boolean(value.showHelpers);
 
     if (this.source === '') {
       this.parseError = 'Please select source or enter a source query';
@@ -86,13 +85,14 @@ export class ExploreState {
   }
 
   valueOf(): ExploreStateValue {
-    return {
+    const value: ExploreStateValue = {
       source: this.source,
-      showSourceQuery: this.showSourceQuery,
       where: this.where,
-      moduleId: this.moduleId,
-      parameterValues: this.parameterValues,
+      moduleStates: this.moduleStates,
     };
+    if (this.showSourceQuery) value.showSourceQuery = true;
+    if (this.showHelpers) value.showHelpers = true;
+    return value;
   }
 
   public change(newValues: Partial<ExploreStateValue>): ExploreState {
@@ -109,15 +109,7 @@ export class ExploreState {
 
     if (rename) {
       toChange.where = renameColumnsInExpression(this.where, rename);
-
-      const module = ModuleRepository.getModule(this.moduleId);
-      if (module) {
-        toChange.parameterValues = renameColumnsInParameterValues(
-          this.parameterValues,
-          module.parameters,
-          rename,
-        );
-      }
+      toChange.moduleStates = this.moduleStates.map(moduleState => moduleState.applyRename(rename));
     }
 
     return this.change(toChange);
@@ -152,84 +144,62 @@ export class ExploreState {
   }
 
   public restrictToQuerySource(querySource: QuerySource): ExploreState {
-    const { where, moduleId, parameterValues } = this;
-    const module = ModuleRepository.getModule(moduleId);
-    if (!module) return this;
+    const { where, moduleStates } = this;
     const newWhere = querySource.restrictWhere(where);
-    const newParameterValues = querySource.restrictParameterValues(
-      parameterValues,
-      module.parameters,
+    const newModuleStates = filterMapIfChanged(moduleStates, moduleState =>
+      moduleState.restrictToQuerySource(querySource),
     );
-    if (where === newWhere && parameterValues === newParameterValues) return this;
+    if (where === newWhere && moduleStates === newModuleStates) return this;
 
     return this.change({
       where: newWhere,
-      parameterValues: newParameterValues,
+      moduleStates: newModuleStates,
+    });
+  }
+
+  public changeModuleState(index: number, moduleState: ModuleState): ExploreState {
+    return this.change({
+      moduleStates: changeByIndex(this.moduleStates, index, () => moduleState),
     });
   }
 
   public applyShowColumn(column: Column): ExploreState {
-    let moduleId: string;
-    let parameterValues: ParameterValues;
-    if (column.sqlType === 'TIMESTAMP') {
-      moduleId = 'time-chart';
-      parameterValues = {};
+    const { moduleStates } = this;
+    if (moduleStates.length) {
+      return this.change({
+        moduleStates: changeByIndex(moduleStates, moduleStates.length - 1, moduleState =>
+          moduleState.applyShowColumn(column),
+        ),
+      });
     } else {
-      moduleId = 'grouping-table';
-      parameterValues = {
-        ...(this.moduleId === moduleId ? this.parameterValues : {}),
-        splitColumns: [ExpressionMeta.fromColumn(column)],
-      };
+      return this.change({
+        moduleStates: [ModuleState.INIT_STATE.applyShowColumn(column)],
+      });
     }
-
-    return this.change({
-      moduleId,
-      parameterValues,
-    });
   }
 
   public applyShowMeasure(measure: Measure): ExploreState {
-    const module = ModuleRepository.getModule(this.moduleId);
-    if (module) {
-      const p = Object.entries(module.parameters).find(
-        ([_, def]) => def.type === 'measure' || def.type === 'measures',
-      );
-      if (p) {
-        const [paramName, def] = p;
-        const { parameterValues } = this;
-        return this.change({
-          parameterValues: {
-            ...parameterValues,
-            [paramName]:
-              def.type === 'measures'
-                ? (parameterValues[paramName] || []).concat(measure)
-                : measure,
-          },
-        });
-      }
+    const { moduleStates } = this;
+    if (moduleStates.length) {
+      return this.change({
+        moduleStates: changeByIndex(moduleStates, moduleStates.length - 1, moduleState =>
+          moduleState.applyShowMeasure(measure),
+        ),
+      });
+    } else {
+      return this.change({
+        moduleStates: [ModuleState.INIT_STATE.applyShowMeasure(measure)],
+      });
     }
-
-    return this.change({
-      moduleId: 'grouping-table',
-      parameterValues: {
-        measures: [measure],
-      },
-    });
   }
 
   public isInitState(): boolean {
-    return (
-      this.moduleId === 'record-table' &&
-      this.source === '' &&
-      this.where instanceof SqlLiteral &&
-      isEmpty(this.parameterValues)
-    );
+    return this.source === '' && this.where instanceof SqlLiteral && !this.moduleStates.length;
   }
 }
 
 ExploreState.DEFAULT_STATE = new ExploreState({
-  moduleId: 'record-table',
   source: '',
   where: SqlLiteral.TRUE,
-  parameterValues: {},
+  moduleStates: [],
 });
