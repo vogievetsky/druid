@@ -48,6 +48,7 @@ $control-pane-width: 240px;
     right: 0;
     border-left: 1px solid $dark-gray2;
     padding: 8px;
+    overflow: auto;
   }
 
   &.show-controls .module-inner-container {

@@ -122,15 +122,26 @@ $resources-width: 240px;
 
     & > .modules-pane {
       grid-area: mod;
+      display: flex;
+      gap: 5px;
+
+      &.vertical {
+        flex-direction: column;
+      }
+
+      &.horizontal {
+        flex-direction: row;
+      }
 
       .module-pane {
-        height: 100%;
+        flex: 1;
       }
     }
 
     & > .helper-bar {
       grid-area: hlp;
       @include card-like;
+      padding: 12px;
     }
   }
 }

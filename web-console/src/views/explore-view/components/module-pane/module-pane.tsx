@@ -76,6 +76,7 @@ function fillInDefaults(
 export interface ModulePaneProps {
   moduleState: ModuleState;
   setModuleState(moduleState: ModuleState): void;
+  onDelete(): void;
   querySource: QuerySource;
   where: SqlExpression;
   setWhere(where: SqlExpression): void;
@@ -90,6 +91,7 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
   const {
     moduleState,
     setModuleState,
+    onDelete,
     querySource,
     where,
     setWhere,
@@ -222,6 +224,7 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
                     );
                   }}
                 />
+                <MenuItem icon={IconNames.TRASH} text="Delete module" onClick={onDelete} />
               </Menu>
             }
           >

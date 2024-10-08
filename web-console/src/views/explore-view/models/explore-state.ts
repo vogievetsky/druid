@@ -32,11 +32,14 @@ import type { Measure } from './measure';
 import { ModuleState } from './module-state';
 import { QuerySource } from './query-source';
 
+type ExploreModuleLayout = 'horizontal' | 'vertical';
+
 interface ExploreStateValue {
   source: string;
   showSourceQuery?: boolean;
   where: SqlExpression;
   moduleStates: ReadonlyArray<ModuleState>;
+  layout?: ExploreModuleLayout;
   showHelpers?: boolean;
 }
 
@@ -61,6 +64,7 @@ export class ExploreState {
   public readonly showSourceQuery: boolean;
   public readonly where: SqlExpression;
   public readonly moduleStates: ReadonlyArray<ModuleState>;
+  public readonly layout?: ExploreModuleLayout;
   public readonly showHelpers: boolean;
 
   public readonly parsedSource: SqlQuery | undefined;
@@ -71,6 +75,7 @@ export class ExploreState {
     this.showSourceQuery = Boolean(value.showSourceQuery);
     this.where = value.where;
     this.moduleStates = value.moduleStates;
+    this.layout = value.layout;
     this.showHelpers = Boolean(value.showHelpers);
 
     if (this.source === '') {
@@ -89,6 +94,7 @@ export class ExploreState {
       source: this.source,
       where: this.where,
       moduleStates: this.moduleStates,
+      layout: this.layout,
     };
     if (this.showSourceQuery) value.showSourceQuery = true;
     if (this.showHelpers) value.showHelpers = true;
@@ -113,6 +119,10 @@ export class ExploreState {
     }
 
     return this.change(toChange);
+  }
+
+  public getLayout(): ExploreModuleLayout {
+    return this.layout || 'vertical';
   }
 
   public changeToTable(tableName: string): ExploreState {
@@ -163,6 +173,12 @@ export class ExploreState {
     });
   }
 
+  public removeModule(index: number): ExploreState {
+    return this.change({
+      moduleStates: changeByIndex(this.moduleStates, index, () => undefined),
+    });
+  }
+
   public applyShowColumn(column: Column): ExploreState {
     const { moduleStates } = this;
     if (moduleStates.length) {
@@ -195,6 +211,14 @@ export class ExploreState {
 
   public isInitState(): boolean {
     return this.source === '' && this.where instanceof SqlLiteral && !this.moduleStates.length;
+  }
+
+  public duplicateLastModule(): ExploreState {
+    const { moduleStates } = this;
+    if (!moduleStates.length) return this;
+    return this.change({
+      moduleStates: moduleStates.concat(moduleStates[moduleStates.length - 1]),
+    });
   }
 }
 

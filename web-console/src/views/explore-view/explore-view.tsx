@@ -314,6 +314,28 @@ export const ExploreView = React.memo(function ExploreView() {
                     />
                     <MenuDivider />
                     <MenuItem
+                      icon={IconNames.DUPLICATE}
+                      text="Duplicate last module"
+                      onClick={() => {
+                        setExploreState(exploreState.duplicateLastModule());
+                      }}
+                    />
+                    <MenuItem icon={IconNames.LAYOUT} text="Layout">
+                      <MenuItem
+                        text="Vertical"
+                        onClick={() => {
+                          setExploreState(exploreState.change({ layout: 'vertical' }));
+                        }}
+                      />
+                      <MenuItem
+                        text="Horizontal"
+                        onClick={() => {
+                          setExploreState(exploreState.change({ layout: 'horizontal' }));
+                        }}
+                      />
+                    </MenuItem>
+                    <MenuDivider />
+                    <MenuItem
                       icon={IconNames.TRASH}
                       text="Clear all view state"
                       intent={Intent.DANGER}
@@ -353,12 +375,16 @@ export const ExploreView = React.memo(function ExploreView() {
           {querySourceState.error ? (
             <div className="query-source-error">{querySourceState.getErrorMessage()}</div>
           ) : querySource ? (
-            <div className="modules-pane" ref={containerRef}>
+            <div
+              className={classNames('modules-pane', exploreState.getLayout())}
+              ref={containerRef}
+            >
               {moduleStates.map((moduleState, i) => (
                 <ModulePane
                   key={i}
                   moduleState={moduleState}
                   setModuleState={moduleState => setModuleState(i, moduleState)}
+                  onDelete={() => setExploreState(exploreState.removeModule(i))}
                   querySource={querySource}
                   where={where}
                   setWhere={setWhere}
@@ -391,7 +417,12 @@ export const ExploreView = React.memo(function ExploreView() {
           ) : querySourceState.loading ? (
             <Loader className="query-source-loader" loadingText="Introspecting query source" />
           ) : undefined}
-          {showHelpers && <div className="helper-bar" />}
+          {showHelpers && (
+            <div className="helper-bar">
+              <p>Helper bar</p>
+              <p>ToDo: fill me in!</p>
+            </div>
+          )}
         </div>
       )}
       {shownText && (
