@@ -43,6 +43,7 @@ import { Api, AppToaster } from '../../singletons';
 import { DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
 
 import {
+  DroppableContainer,
   FilterPane,
   HighlightBubble,
   ModulePane,
@@ -130,7 +131,7 @@ export const ExploreView = React.memo(function ExploreView() {
 
     const firstTableName = tables[0].TABLE_NAME;
     if (firstTableName) {
-      setTable(firstTableName);
+      setExploreState(exploreState.initToTable(firstTableName));
     }
   }
 
@@ -375,45 +376,55 @@ export const ExploreView = React.memo(function ExploreView() {
           {querySourceState.error ? (
             <div className="query-source-error">{querySourceState.getErrorMessage()}</div>
           ) : querySource ? (
-            <div
-              className={classNames('modules-pane', exploreState.getLayout())}
-              ref={containerRef}
-            >
-              {moduleStates.map((moduleState, i) => (
-                <ModulePane
-                  key={i}
-                  moduleState={moduleState}
-                  setModuleState={moduleState => setModuleState(i, moduleState)}
-                  onDelete={() => setExploreState(exploreState.removeModule(i))}
-                  querySource={querySource}
-                  where={where}
-                  setWhere={setWhere}
-                  runSqlQuery={runSqlPlusQuery}
-                  onAddToSourceQueryAsColumn={expression => {
-                    if (!querySource) return;
-                    setExploreState(
-                      exploreState.changeSource(
-                        querySource.addColumn(querySource.transformToBaseColumns(expression)),
-                        undefined,
-                      ),
-                    );
-                  }}
-                  onAddToSourceQueryAsMeasure={measure => {
-                    if (!querySource) return;
-                    setExploreState(
-                      exploreState.changeSource(
-                        querySource.addMeasure(
-                          measure.changeExpression(
-                            querySource.transformToBaseColumns(measure.expression),
-                          ),
+            moduleStates.length ? (
+              <div
+                className={classNames('modules-pane', exploreState.getLayout())}
+                ref={containerRef}
+              >
+                {moduleStates.map((moduleState, i) => (
+                  <ModulePane
+                    key={i}
+                    moduleState={moduleState}
+                    setModuleState={moduleState => setModuleState(i, moduleState)}
+                    onDelete={() => setExploreState(exploreState.removeModule(i))}
+                    querySource={querySource}
+                    where={where}
+                    setWhere={setWhere}
+                    runSqlQuery={runSqlPlusQuery}
+                    onAddToSourceQueryAsColumn={expression => {
+                      if (!querySource) return;
+                      setExploreState(
+                        exploreState.changeSource(
+                          querySource.addColumn(querySource.transformToBaseColumns(expression)),
+                          undefined,
                         ),
-                        undefined,
-                      ),
-                    );
-                  }}
-                />
-              ))}
-            </div>
+                      );
+                    }}
+                    onAddToSourceQueryAsMeasure={measure => {
+                      if (!querySource) return;
+                      setExploreState(
+                        exploreState.changeSource(
+                          querySource.addMeasure(
+                            measure.changeExpression(
+                              querySource.transformToBaseColumns(measure.expression),
+                            ),
+                          ),
+                          undefined,
+                        ),
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <DroppableContainer
+                className="no-module-placeholder"
+                onDropColumn={onShowColumn}
+                onDropMeasure={onShowMeasure}
+              >
+                <span>Drag and drop a column or measure here</span>
+              </DroppableContainer>
+            )
           ) : querySourceState.loading ? (
             <Loader className="query-source-loader" loadingText="Introspecting query source" />
           ) : undefined}

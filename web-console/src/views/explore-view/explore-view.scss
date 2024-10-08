@@ -138,6 +138,13 @@ $resources-width: 240px;
       }
     }
 
+    & > .no-module-placeholder {
+      grid-area: mod;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     & > .helper-bar {
       grid-area: hlp;
       @include card-like;

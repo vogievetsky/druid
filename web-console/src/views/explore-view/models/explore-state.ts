@@ -129,6 +129,14 @@ export class ExploreState {
     return this.changeSource(SqlQuery.create(tableName), undefined);
   }
 
+  public initToTable(tableName: string): ExploreState {
+    const { moduleStates } = this;
+    return this.change({
+      source: SqlQuery.create(tableName).toString(),
+      moduleStates: moduleStates.length ? moduleStates : [ModuleState.INIT_STATE],
+    });
+  }
+
   public addInitTimeFilterIfNeeded(columns: readonly Column[]): ExploreState {
     if (!this.parsedSource) return this;
     if (!QuerySource.isSingleStarQuery(this.parsedSource)) return this; // Only trigger for `SELECT * FROM ...` queries
