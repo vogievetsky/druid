@@ -107,22 +107,28 @@ export class ModuleState {
   }
 
   public applyShowColumn(column: Column): ModuleState {
-    let moduleId: string;
-    let parameterValues: ParameterValues;
+    let newModuleId: string;
+    let newParameterValues: ParameterValues = {};
     if (column.sqlType === 'TIMESTAMP') {
-      moduleId = 'time-chart';
-      parameterValues = {};
+      newModuleId = 'time-chart';
+    } else if (column.sqlType === 'BOOLEAN') {
+      newModuleId = 'pie-chart';
+      newParameterValues = {
+        splitColumn: ExpressionMeta.fromColumn(column),
+      };
     } else {
-      moduleId = 'grouping-table';
-      parameterValues = {
-        ...(this.moduleId === moduleId ? this.parameterValues : {}),
+      newModuleId = 'grouping-table';
+      newParameterValues = {
         splitColumns: [ExpressionMeta.fromColumn(column)],
       };
     }
 
     return this.change({
-      moduleId,
-      parameterValues,
+      moduleId: newModuleId,
+      parameterValues: {
+        ...(this.moduleId === newModuleId ? this.parameterValues : {}),
+        ...newParameterValues,
+      },
     });
   }
 

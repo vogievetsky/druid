@@ -18,7 +18,7 @@
 
 /* eslint-disable @typescript-eslint/ban-types */
 
-import { mapRecord, mapRecordIfChanged } from '../../../utils';
+import { deleteKeys, mapRecord, mapRecordIfChanged } from '../../../utils';
 
 import { ExpressionMeta } from './expression-meta';
 import { Measure } from './measure';
@@ -28,13 +28,13 @@ export type OptionValue = string | number;
 
 export type ModuleFunctor<T> =
   | T
-  | ((options: { parameterValues: ParameterValues; querySource: QuerySource }) => T);
+  | ((options: { parameterValues: ParameterValues; querySource: QuerySource | undefined }) => T);
 
 export function evaluateFunctor<T>(
-  fn: ModuleFunctor<T>,
+  fn: ModuleFunctor<T> | undefined,
   parameterValues: ParameterValues,
   querySource: QuerySource | undefined,
-): T {
+): T | undefined {
   if (typeof fn === 'function') {
     return (fn as any)({ parameterValues, querySource });
   } else {
@@ -87,14 +87,12 @@ export type TypedParameterDefinition<Type extends keyof ParameterTypes> = TypedE
   label?: ModuleFunctor<string>;
   type: Type;
   transferGroup?: string;
-  defaultValue?:
-    | ParameterTypes[Type]
-    | ((querySource: QuerySource) => ParameterTypes[Type] | undefined);
-
+  defaultValue?: ModuleFunctor<ParameterTypes[Type] | undefined>;
   sticky?: boolean;
   required?: ModuleFunctor<boolean>;
   description?: ModuleFunctor<string>;
   placeholder?: string;
+  defined?: ModuleFunctor<boolean>;
   visible?: ModuleFunctor<boolean>;
 
   /**
@@ -104,16 +102,6 @@ export type TypedParameterDefinition<Type extends keyof ParameterTypes> = TypedE
    * @returns - An error message if the value is invalid, or undefined if the value is valid.
    */
   validate?: (value: ParameterTypes[Type] | undefined) => string | undefined;
-
-  /**
-   * Determines whether the parameter should exist in the visual modules parameters.
-   *
-   * If the provided function returns false, the parameter value will be deleted from
-   * the module's parameters. If true, it will be whatever the relative control
-   *
-   * @default undefined
-   */
-  defined?: (options: { parametersValues: Record<string, any> }) => boolean;
 };
 
 export type ParameterDefinition =
@@ -211,6 +199,24 @@ function inflateParameterValue(value: unknown, parameter: ParameterDefinition): 
 
 // -----------------------------------------------------
 
+export function removeUndefinedParameterValues(
+  parameterValues: ParameterValues,
+  parameters: Parameters,
+  querySource: QuerySource | undefined,
+): ParameterValues {
+  const keysToRemove = Object.keys(parameterValues).filter(key => {
+    const parameter = parameters[key];
+    if (!parameter) return true;
+    return (
+      typeof parameter.defined !== 'undefined' &&
+      !evaluateFunctor(parameter.defined, parameterValues, querySource)
+    );
+  });
+  return keysToRemove.length ? deleteKeys(parameterValues, keysToRemove) : parameterValues;
+}
+
+// -----------------------------------------------------
+
 function defaultForType(parameterType: keyof ParameterTypes): any {
   switch (parameterType) {
     case 'boolean':
@@ -227,21 +233,19 @@ function defaultForType(parameterType: keyof ParameterTypes): any {
 
 export function effectiveParameterDefault(
   parameter: ParameterDefinition,
+  parameterValues: ParameterValues,
   querySource: QuerySource | undefined,
 ): any {
-  const { defaultValue } = parameter;
-  switch (typeof defaultValue) {
-    case 'function':
-      return (
-        (querySource ? defaultValue(querySource) : undefined) ?? defaultForType(parameter.type)
-      );
-
-    case 'undefined':
-      return defaultForType(parameter.type);
-
-    default:
-      return defaultValue;
+  if (
+    typeof parameter.defined !== 'undefined' &&
+    evaluateFunctor(parameter.defined, parameterValues, querySource) === false
+  ) {
+    return;
   }
+  return (
+    evaluateFunctor(parameter.defaultValue, parameterValues, querySource) ??
+    defaultForType(parameter.type)
+  );
 }
 
 // -----------------------------------------------------

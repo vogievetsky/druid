@@ -17,7 +17,7 @@
  */
 
 import { IconNames } from '@blueprintjs/icons';
-import { C, L } from '@druid-toolkit/query';
+import { C, F, L } from '@druid-toolkit/query';
 import type { ECharts } from 'echarts';
 import * as echarts from 'echarts';
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -75,7 +75,7 @@ ModuleRepository.registerModule<PieChartParameterValues>({
     measure: {
       type: 'measure',
       transferGroup: 'show',
-      defaultValue: querySource => querySource.getFirstAggregateMeasure(),
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
     limit: {
@@ -102,7 +102,7 @@ ModuleRepository.registerModule<PieChartParameterValues>({
       return {
         mainQuery: querySource
           .getInitQuery(where)
-          .addSelect(splitExpression.as('name'), { addToGroupBy: 'end' })
+          .addSelect(F.cast(splitExpression, 'VARCHAR').as('name'), { addToGroupBy: 'end' })
           .addSelect(measure.expression.as('value'), {
             addToOrderBy: 'end',
             direction: 'DESC',

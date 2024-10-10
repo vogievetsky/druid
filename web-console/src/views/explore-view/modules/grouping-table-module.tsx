@@ -131,7 +131,7 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
     measures: {
       type: 'measures',
       transferGroup: 'show-agg',
-      defaultValue: querySource => querySource.getFirstAggregateMeasureArray(),
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasureArray(),
       nonEmpty: true,
     },
 

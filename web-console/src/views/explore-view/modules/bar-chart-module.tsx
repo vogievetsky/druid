@@ -65,7 +65,7 @@ ModuleRepository.registerModule<BarChartParameterValues>({
         P1M: '1 month',
       },
       defaultValue: 'PT1H',
-      visible: ({ parameterValues, querySource }) =>
+      defined: ({ parameterValues, querySource }) =>
         parameterValues.splitColumn.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
     },
 
@@ -73,7 +73,7 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       type: 'measure',
       label: 'Measure to show',
       transferGroup: 'show-agg',
-      defaultValue: querySource => querySource.getFirstAggregateMeasure(),
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
     measureToSort: {

@@ -88,7 +88,8 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     onDropColumn?: (column: Column) => void;
     onDropMeasure?: (measure: Measure) => void;
   } {
-    const effectiveValue = value ?? effectiveParameterDefault(parameter, querySource);
+    const effectiveValue =
+      value ?? effectiveParameterDefault(parameter, parameterValues, querySource);
     const required = evaluateFunctor(parameter.required, parameterValues, querySource);
     switch (parameter.type) {
       case 'boolean': {
@@ -353,7 +354,8 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     <div className="control-pane">
       {namedParameters.map(([name, parameter], i) => {
         const visible = evaluateFunctor(parameter.visible, parameterValues, querySource);
-        if (visible === false) return;
+        const defined = evaluateFunctor(parameter.defined, parameterValues, querySource);
+        if (visible === false || defined === false) return;
 
         const value = parameterValues[name];
         function onValueChange(newValue: unknown) {

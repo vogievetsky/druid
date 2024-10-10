@@ -112,7 +112,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'measure',
       label: 'Measure to show',
       transferGroup: 'show-agg',
-      defaultValue: querySource => querySource.getFirstAggregateMeasure(),
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
     snappyHighlight: {

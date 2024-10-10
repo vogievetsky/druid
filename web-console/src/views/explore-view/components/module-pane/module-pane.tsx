@@ -47,7 +47,7 @@ import type {
   ParameterValues,
   QuerySource,
 } from '../../models';
-import { effectiveParameterDefault, Stage } from '../../models';
+import { effectiveParameterDefault, removeUndefinedParameterValues, Stage } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { adjustTransferValue, normalizeType } from '../../utils';
 import { ControlPane } from '../control-pane/control-pane';
@@ -69,7 +69,11 @@ function fillInDefaults(
   const parameterValuesWithDefaults = { ...parameterValues };
   Object.entries(parameters).forEach(([propName, propDefinition]) => {
     if (typeof parameterValuesWithDefaults[propName] !== 'undefined') return;
-    parameterValuesWithDefaults[propName] = effectiveParameterDefault(propDefinition, querySource);
+    parameterValuesWithDefaults[propName] = effectiveParameterDefault(
+      propDefinition,
+      parameterValues,
+      querySource,
+    );
   });
   return parameterValuesWithDefaults;
 }
@@ -110,23 +114,29 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
   const module = ModuleRepository.getModule(moduleId);
 
   function updateParameterValues(newParameterValues: ParameterValues) {
-    // Evaluate sticky-ness
-    if (module) {
-      const currentExploreSticky = localStorageGetJson(LocalStorageKeys.EXPLORE_STICKY) || {};
-      const currentModuleSticky = currentExploreSticky[moduleId] || {};
-      const newModuleSticky = {
-        ...currentModuleSticky,
-        ...mapRecord(newParameterValues, (v, k) => (module.parameters[k]?.sticky ? v : undefined)),
-      };
+    if (!module) return;
 
-      localStorageSetJson(LocalStorageKeys.EXPLORE_STICKY, {
-        ...currentExploreSticky,
-        [moduleId]: isEmpty(newModuleSticky) ? undefined : newModuleSticky,
-      });
-    }
+    // Evaluate sticky-ness
+    const currentExploreSticky = localStorageGetJson(LocalStorageKeys.EXPLORE_STICKY) || {};
+    const currentModuleSticky = currentExploreSticky[moduleId] || {};
+    const newModuleSticky = {
+      ...currentModuleSticky,
+      ...mapRecord(newParameterValues, (v, k) => (module.parameters[k]?.sticky ? v : undefined)),
+    };
+
+    localStorageSetJson(LocalStorageKeys.EXPLORE_STICKY, {
+      ...currentExploreSticky,
+      [moduleId]: isEmpty(newModuleSticky) ? undefined : newModuleSticky,
+    });
 
     setModuleState(
-      moduleState.changeParameterValues({ ...parameterValues, ...newParameterValues }),
+      moduleState.changeParameterValues(
+        removeUndefinedParameterValues(
+          { ...parameterValues, ...newParameterValues },
+          module.parameters,
+          querySource,
+        ),
+      ),
     );
   }
 

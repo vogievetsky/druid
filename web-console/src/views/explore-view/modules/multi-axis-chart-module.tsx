@@ -67,7 +67,7 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
       type: 'measures',
       label: 'Measures to show',
       transferGroup: 'show',
-      defaultValue: querySource => querySource.getFirstAggregateMeasureArray(),
+      defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasureArray(),
       nonEmpty: true,
       required: true,
     },
