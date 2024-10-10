@@ -74,6 +74,7 @@ function fillInDefaults(
 }
 
 export interface ModulePaneProps {
+  className: string;
   moduleState: ModuleState;
   setModuleState(moduleState: ModuleState): void;
   onDelete(): void;
@@ -89,6 +90,7 @@ export interface ModulePaneProps {
 
 export const ModulePane = function ModulePane(props: ModulePaneProps) {
   const {
+    className,
     moduleState,
     setModuleState,
     onDelete,
@@ -161,7 +163,13 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
   }
 
   return (
-    <div className={classNames('module-pane', showControls ? 'show-controls' : 'no-controls')}>
+    <div
+      className={classNames(
+        'module-pane',
+        className,
+        showControls ? 'show-controls' : 'no-controls',
+      )}
+    >
       <div className="module-top-bar">
         <ModulePicker
           selectedModuleId={moduleId}

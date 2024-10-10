@@ -21,6 +21,7 @@ import './modules';
 import {
   Button,
   ButtonGroup,
+  Icon,
   Intent,
   Menu,
   MenuDivider,
@@ -28,6 +29,7 @@ import {
   Popover,
   Position,
 } from '@blueprintjs/core';
+import type { IconName } from '@blueprintjs/icons';
 import { IconNames } from '@blueprintjs/icons';
 import type { Column, QueryResult, SqlExpression } from '@druid-toolkit/query';
 import { QueryRunner, SqlQuery } from '@druid-toolkit/query';
@@ -52,7 +54,7 @@ import {
   SourcePane,
   SourceQueryPane,
 } from './components';
-import type { Measure, ModuleState } from './models';
+import type { ExploreModuleLayout, Measure, ModuleState } from './models';
 import { ExploreState, ExpressionMeta, QuerySource } from './models';
 import { rewriteAggregate, rewriteMaxDataTime } from './query-macros';
 import type { Rename } from './utils';
@@ -61,6 +63,23 @@ import { QueryLog } from './utils';
 import './explore-view.scss';
 
 const QUERY_LOG = new QueryLog();
+
+const LAYOUT_TO_ICON: Record<ExploreModuleLayout, IconName> = {
+  'single': IconNames.SYMBOL_RECTANGLE,
+  'two-by-two': IconNames.GRID_VIEW,
+  'two-rows': IconNames.LAYOUT_TWO_ROWS,
+  'two-columns': IconNames.LAYOUT_TWO_COLUMNS,
+  'three-rows': IconNames.LAYOUT_THREE_ROWS,
+  'three-columns': IconNames.LAYOUT_THREE_COLUMNS,
+  'top-row-two-tiles': IconNames.LAYOUT_TOP_ROW_TWO_TILES,
+  'bottom-row-two-tiles': IconNames.LAYOUT_BOTTOM_ROW_TWO_TILES,
+  'left-column-two-tiles': IconNames.LAYOUT_LEFT_COLUMN_TWO_TILES,
+  'right-column-two-tiles': IconNames.LAYOUT_RIGHT_COLUMN_TWO_TILES,
+  'top-row-three-tiles': IconNames.LAYOUT_TOP_ROW_THREE_TILES,
+  'bottom-row-three-tiles': IconNames.LAYOUT_BOTTOM_ROW_THREE_TILES,
+  'left-column-three-tiles': IconNames.LAYOUT_LEFT_COLUMN_THREE_TILES,
+  'right-column-three-tiles': IconNames.LAYOUT_RIGHT_COLUMN_THREE_TILES,
+};
 
 // ---------------------------------------
 
@@ -144,8 +163,7 @@ export const ExploreView = React.memo(function ExploreView() {
 
   // -------------------------------------------------------
 
-  const { source, parsedSource, parseError, where, showSourceQuery, moduleStates, showHelpers } =
-    exploreState;
+  const { source, parsedSource, parseError, where, showSourceQuery, showHelpers } = exploreState;
 
   const [querySourceState] = useQueryManager<string, QuerySource>({
     query: parsedSource ? String(parsedSource) : undefined,
@@ -192,11 +210,11 @@ export const ExploreView = React.memo(function ExploreView() {
   }
 
   function onShowColumn(column: Column) {
-    setExploreState(exploreState.applyShowColumn(column));
+    setExploreState(exploreState.applyShowColumn(column, undefined));
   }
 
   function onShowMeasure(measure: Measure) {
-    setExploreState(exploreState.applyShowMeasure(measure));
+    setExploreState(exploreState.applyShowMeasure(measure, undefined));
   }
 
   function onShowSourceQuery() {
@@ -218,6 +236,7 @@ export const ExploreView = React.memo(function ExploreView() {
     };
   }, [querySource]);
 
+  const selectedLayout = exploreState.getLayout();
   return (
     <div
       className={classNames('explore-view', {
@@ -295,6 +314,21 @@ export const ExploreView = React.memo(function ExploreView() {
                 position={Position.BOTTOM_RIGHT}
                 content={
                   <Menu>
+                    <MenuItem icon={IconNames.CONTROL} text="Layout">
+                      {ExploreState.LAYOUTS.map(layout => (
+                        <MenuItem
+                          icon={LAYOUT_TO_ICON[layout]}
+                          text={layout.replaceAll('-', ' ')}
+                          labelElement={
+                            selectedLayout === layout ? <Icon icon={IconNames.TICK} /> : undefined
+                          }
+                          onClick={() => {
+                            setExploreState(exploreState.change({ layout }));
+                          }}
+                        />
+                      ))}
+                    </MenuItem>
+                    <MenuDivider />
                     <MenuItem
                       icon={IconNames.DUPLICATE}
                       text="Copy last query"
@@ -314,28 +348,6 @@ export const ExploreView = React.memo(function ExploreView() {
                         setShownText(QUERY_LOG.getFormatted());
                       }}
                     />
-                    <MenuDivider />
-                    <MenuItem
-                      icon={IconNames.DUPLICATE}
-                      text="Duplicate last module"
-                      onClick={() => {
-                        setExploreState(exploreState.duplicateLastModule());
-                      }}
-                    />
-                    <MenuItem icon={IconNames.LAYOUT} text="Layout">
-                      <MenuItem
-                        text="Vertical"
-                        onClick={() => {
-                          setExploreState(exploreState.change({ layout: 'vertical' }));
-                        }}
-                      />
-                      <MenuItem
-                        text="Horizontal"
-                        onClick={() => {
-                          setExploreState(exploreState.change({ layout: 'horizontal' }));
-                        }}
-                      />
-                    </MenuItem>
                     <MenuDivider />
                     <MenuItem
                       icon={IconNames.TRASH}
@@ -377,14 +389,15 @@ export const ExploreView = React.memo(function ExploreView() {
           {querySourceState.error ? (
             <div className="query-source-error">{querySourceState.getErrorMessage()}</div>
           ) : querySource ? (
-            moduleStates.length ? (
-              <div
-                className={classNames('modules-pane', exploreState.getLayout())}
-                ref={containerRef}
-              >
-                {moduleStates.map((moduleState, i) => (
+            <div
+              className={classNames('modules-pane', `layout-${selectedLayout}`)}
+              ref={containerRef}
+            >
+              {exploreState.getModuleStatesToShow().map((moduleState, i) =>
+                moduleState ? (
                   <ModulePane
                     key={i}
+                    className={`m${i}`}
                     moduleState={moduleState}
                     setModuleState={moduleState => setModuleState(i, moduleState)}
                     onDelete={() => setExploreState(exploreState.removeModule(i))}
@@ -415,17 +428,21 @@ export const ExploreView = React.memo(function ExploreView() {
                       );
                     }}
                   />
-                ))}
-              </div>
-            ) : (
-              <DroppableContainer
-                className="no-module-placeholder"
-                onDropColumn={onShowColumn}
-                onDropMeasure={onShowMeasure}
-              >
-                <span>Drag and drop a column or measure here</span>
-              </DroppableContainer>
-            )
+                ) : (
+                  <DroppableContainer
+                    className={`no-module-placeholder m${i}`}
+                    onDropColumn={column =>
+                      setExploreState(exploreState.applyShowColumn(column, i))
+                    }
+                    onDropMeasure={measure =>
+                      setExploreState(exploreState.applyShowMeasure(measure, i))
+                    }
+                  >
+                    <span>Drag and drop a column or measure here</span>
+                  </DroppableContainer>
+                ),
+              )}
+            </div>
           ) : querySourceState.loading ? (
             <Loader className="query-source-loader" loadingText="Introspecting query source" />
           ) : undefined}

@@ -24,7 +24,7 @@ import {
   SqlQuery,
 } from '@druid-toolkit/query';
 
-import { changeByIndex, filterMapIfChanged } from '../../../utils';
+import { changeByIndex, deleteKeys, isEmpty, mapRecord, mapRecordIfChanged } from '../../../utils';
 import type { Rename } from '../utils';
 import { renameColumnsInExpression } from '../utils';
 
@@ -33,13 +33,27 @@ import type { Measure } from './measure';
 import { ModuleState } from './module-state';
 import { QuerySource } from './query-source';
 
-type ExploreModuleLayout = 'horizontal' | 'vertical';
+export type ExploreModuleLayout =
+  | 'single'
+  | 'two-by-two'
+  | 'two-rows'
+  | 'two-columns'
+  | 'three-rows'
+  | 'three-columns'
+  | 'top-row-two-tiles'
+  | 'bottom-row-two-tiles'
+  | 'left-column-two-tiles'
+  | 'right-column-two-tiles'
+  | 'top-row-three-tiles'
+  | 'bottom-row-three-tiles'
+  | 'left-column-three-tiles'
+  | 'right-column-three-tiles';
 
 interface ExploreStateValue {
   source: string;
   showSourceQuery?: boolean;
   where: SqlExpression;
-  moduleStates: ReadonlyArray<ModuleState>;
+  moduleStates: Readonly<Record<string, ModuleState>>;
   layout?: ExploreModuleLayout;
   helpers?: ReadonlyArray<ExpressionMeta>;
   showHelpers?: boolean;
@@ -47,18 +61,51 @@ interface ExploreStateValue {
 
 export class ExploreState {
   static DEFAULT_STATE: ExploreState;
+  static LAYOUTS: ExploreModuleLayout[] = [
+    'single',
+    'two-by-two',
+    'two-rows',
+    'two-columns',
+    'three-rows',
+    'three-columns',
+    'top-row-two-tiles',
+    'bottom-row-two-tiles',
+    'left-column-two-tiles',
+    'right-column-two-tiles',
+    'top-row-three-tiles',
+    'bottom-row-three-tiles',
+    'left-column-three-tiles',
+    'right-column-three-tiles',
+  ];
+
+  static LAYOUT_TO_NUM_TILES: Record<ExploreModuleLayout, number> = {
+    'single': 1,
+    'two-by-two': 4,
+    'two-rows': 2,
+    'two-columns': 2,
+    'three-rows': 3,
+    'three-columns': 3,
+    'top-row-two-tiles': 3,
+    'bottom-row-two-tiles': 3,
+    'left-column-two-tiles': 3,
+    'right-column-two-tiles': 3,
+    'top-row-three-tiles': 4,
+    'bottom-row-three-tiles': 4,
+    'left-column-three-tiles': 4,
+    'right-column-three-tiles': 4,
+  };
 
   static fromJS(js: any) {
-    let moduleStatesJS: any[] = [];
-    if (Array.isArray(js.moduleStates)) {
+    let moduleStatesJS: Readonly<Record<string, any>> = {};
+    if (js.moduleStates) {
       moduleStatesJS = js.moduleStates;
     } else if (js.moduleId && js.parameterValues) {
-      moduleStatesJS = [js];
+      moduleStatesJS = { '0': js };
     }
     return new ExploreState({
       ...js,
       where: SqlExpression.maybeParse(js.where) || SqlLiteral.TRUE,
-      moduleStates: moduleStatesJS.map(ModuleState.fromJS),
+      moduleStates: mapRecord(moduleStatesJS, ModuleState.fromJS),
       helpers: ExpressionMeta.inflateArray(js.helpers || []),
     });
   }
@@ -66,7 +113,7 @@ export class ExploreState {
   public readonly source: string;
   public readonly showSourceQuery: boolean;
   public readonly where: SqlExpression;
-  public readonly moduleStates: ReadonlyArray<ModuleState>;
+  public readonly moduleStates: Readonly<Record<string, ModuleState>>;
   public readonly layout?: ExploreModuleLayout;
   public readonly helpers: ReadonlyArray<ExpressionMeta>;
   public readonly showHelpers: boolean;
@@ -121,7 +168,9 @@ export class ExploreState {
 
     if (rename) {
       toChange.where = renameColumnsInExpression(this.where, rename);
-      toChange.moduleStates = this.moduleStates.map(moduleState => moduleState.applyRename(rename));
+      toChange.moduleStates = mapRecordIfChanged(this.moduleStates, moduleState =>
+        moduleState.applyRename(rename),
+      );
       toChange.helpers = this.helpers.map(helper => helper.applyRename(rename));
     }
 
@@ -129,7 +178,7 @@ export class ExploreState {
   }
 
   public getLayout(): ExploreModuleLayout {
-    return this.layout || 'vertical';
+    return this.layout || 'single';
   }
 
   public changeToTable(tableName: string): ExploreState {
@@ -140,7 +189,7 @@ export class ExploreState {
     const { moduleStates } = this;
     return this.change({
       source: SqlQuery.create(tableName).toString(),
-      moduleStates: moduleStates.length ? moduleStates : [ModuleState.INIT_STATE],
+      moduleStates: isEmpty(moduleStates) ? { '0': ModuleState.INIT_STATE } : moduleStates,
     });
   }
 
@@ -171,7 +220,7 @@ export class ExploreState {
   public restrictToQuerySource(querySource: QuerySource): ExploreState {
     const { where, moduleStates } = this;
     const newWhere = querySource.restrictWhere(where);
-    const newModuleStates = filterMapIfChanged(moduleStates, moduleState =>
+    const newModuleStates = mapRecordIfChanged(moduleStates, moduleState =>
       moduleState.restrictToQuerySource(querySource),
     );
     if (where === newWhere && moduleStates === newModuleStates) return this;
@@ -182,62 +231,35 @@ export class ExploreState {
     });
   }
 
-  public changeModuleState(index: number, moduleState: ModuleState): ExploreState {
+  public changeModuleState(k: number, moduleState: ModuleState): ExploreState {
     return this.change({
-      moduleStates: changeByIndex(this.moduleStates, index, () => moduleState),
+      moduleStates: { ...this.moduleStates, [k]: moduleState },
     });
   }
 
-  public removeModule(index: number): ExploreState {
+  public removeModule(k: number): ExploreState {
     return this.change({
-      moduleStates: changeByIndex(this.moduleStates, index, () => undefined),
+      moduleStates: deleteKeys(this.moduleStates, [String(k)]),
     });
   }
 
-  public applyShowColumn(column: Column): ExploreState {
+  public applyShowColumn(column: Column, k = 0): ExploreState {
     const { moduleStates } = this;
-    if (moduleStates.length) {
-      return this.change({
-        moduleStates: changeByIndex(moduleStates, moduleStates.length - 1, moduleState =>
-          moduleState.applyShowColumn(column),
-        ),
-      });
-    } else {
-      return this.change({
-        moduleStates: [ModuleState.INIT_STATE.applyShowColumn(column)],
-      });
-    }
-  }
-
-  public applyShowMeasure(measure: Measure): ExploreState {
-    const { moduleStates } = this;
-    if (moduleStates.length) {
-      return this.change({
-        moduleStates: changeByIndex(moduleStates, moduleStates.length - 1, moduleState =>
-          moduleState.applyShowMeasure(measure),
-        ),
-      });
-    } else {
-      return this.change({
-        moduleStates: [ModuleState.INIT_STATE.applyShowMeasure(measure)],
-      });
-    }
-  }
-
-  public isInitState(): boolean {
-    return (
-      this.source === '' &&
-      this.where instanceof SqlLiteral &&
-      !this.moduleStates.length &&
-      !this.helpers.length
-    );
-  }
-
-  public duplicateLastModule(): ExploreState {
-    const { moduleStates } = this;
-    if (!moduleStates.length) return this;
     return this.change({
-      moduleStates: moduleStates.concat(moduleStates[moduleStates.length - 1]),
+      moduleStates: {
+        ...moduleStates,
+        [k]: (moduleStates[k] || ModuleState.INIT_STATE).applyShowColumn(column),
+      },
+    });
+  }
+
+  public applyShowMeasure(measure: Measure, k = 0): ExploreState {
+    const { moduleStates } = this;
+    return this.change({
+      moduleStates: {
+        ...moduleStates,
+        [k]: (moduleStates[k] || ModuleState.INIT_STATE).applyShowMeasure(measure),
+      },
     });
   }
 
@@ -248,10 +270,29 @@ export class ExploreState {
   public addHelper(helper: ExpressionMeta): ExploreState {
     return this.change({ helpers: this.helpers.concat(helper) });
   }
+
+  public getModuleStatesToShow(): (ModuleState | null)[] {
+    const moduleStates = this.moduleStates;
+    const numberToShow = ExploreState.LAYOUT_TO_NUM_TILES[this.getLayout()];
+    const ret: (ModuleState | null)[] = [];
+    for (let i = 0; i < numberToShow; i++) {
+      ret.push(moduleStates[i] || null);
+    }
+    return ret;
+  }
+
+  public isInitState(): boolean {
+    return (
+      this.source === '' &&
+      this.where instanceof SqlLiteral &&
+      isEmpty(this.moduleStates) &&
+      !this.helpers.length
+    );
+  }
 }
 
 ExploreState.DEFAULT_STATE = new ExploreState({
   source: '',
   where: SqlLiteral.TRUE,
-  moduleStates: [],
+  moduleStates: {},
 });
