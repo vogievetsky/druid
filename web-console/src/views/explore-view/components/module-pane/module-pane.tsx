@@ -226,6 +226,17 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
             );
           }}
         />
+        {module && !showControls && (
+          <ControlPane
+            querySource={querySource}
+            onUpdateParameterValues={updateParameterValues}
+            parameters={module.parameters}
+            parameterValues={parameterValues}
+            compact
+            onAddToSourceQueryAsColumn={onAddToSourceQueryAsColumn}
+            onAddToSourceQueryAsMeasure={onAddToSourceQueryAsMeasure}
+          />
+        )}
         <div className="bar-expander" />
         <ButtonGroup>
           <Popover

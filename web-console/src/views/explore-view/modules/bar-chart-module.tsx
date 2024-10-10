@@ -52,6 +52,7 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       label: 'Bar column',
       transferGroup: 'show',
       required: true,
+      important: true,
     },
     timeBucket: {
       type: 'option',
@@ -65,8 +66,9 @@ ModuleRepository.registerModule<BarChartParameterValues>({
         P1M: '1 month',
       },
       defaultValue: 'PT1H',
+      important: true,
       defined: ({ parameterValues, querySource }) =>
-        parameterValues.splitColumn.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
+        parameterValues.splitColumn?.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
     },
 
     measure: {
@@ -75,6 +77,7 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       transferGroup: 'show-agg',
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
+      important: true,
     },
     measureToSort: {
       type: 'measure',

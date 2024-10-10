@@ -70,6 +70,7 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasureArray(),
       nonEmpty: true,
       required: true,
+      important: true,
     },
   },
   component: function MultiAxisChartModule(props) {

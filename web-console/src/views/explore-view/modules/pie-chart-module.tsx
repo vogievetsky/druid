@@ -71,12 +71,14 @@ ModuleRepository.registerModule<PieChartParameterValues>({
       label: 'Slice column',
       transferGroup: 'show',
       required: true,
+      important: true,
     },
     measure: {
       type: 'measure',
       transferGroup: 'show',
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
+      important: true,
     },
     limit: {
       type: 'number',

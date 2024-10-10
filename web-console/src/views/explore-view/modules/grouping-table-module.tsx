@@ -78,6 +78,7 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
       label: 'Group by',
       transferGroup: 'show',
       defaultValue: [],
+      important: true,
     },
 
     timeBucket: {
@@ -92,7 +93,8 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
         P1M: '1 month',
       },
       defaultValue: 'PT1H',
-      visible: ({ parameterValues, querySource }) =>
+      important: true,
+      defined: ({ parameterValues, querySource }) =>
         (parameterValues.splitColumns || []).some(
           (c: ExpressionMeta) => c.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
         ),
@@ -133,6 +135,7 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
       transferGroup: 'show-agg',
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasureArray(),
       nonEmpty: true,
+      important: true,
     },
 
     compares: {

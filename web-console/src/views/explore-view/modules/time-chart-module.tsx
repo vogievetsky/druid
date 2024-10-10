@@ -80,6 +80,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'option',
       options: ['auto', 'PT1M', 'PT5M', 'PT30M', 'PT1H', 'P1D'],
       defaultValue: 'auto',
+      important: true,
       optionLabels: {
         auto: 'Auto',
         PT1M: 'Minute',
@@ -94,6 +95,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'expression',
       label: 'Stack by',
       transferGroup: 'show',
+      important: true,
     },
     numberToStack: {
       type: 'number',
@@ -112,6 +114,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       type: 'measure',
       label: 'Measure to show',
       transferGroup: 'show-agg',
+      important: true,
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },

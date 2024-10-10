@@ -29,6 +29,7 @@ import {
 import { IconNames } from '@blueprintjs/icons';
 import type { Column, SqlExpression } from '@druid-toolkit/query';
 import { SqlColumn } from '@druid-toolkit/query';
+import classNames from 'classnames';
 import type { JSX } from 'react';
 import React from 'react';
 
@@ -63,6 +64,7 @@ export interface ControlPaneProps {
   onUpdateParameterValues(params: Record<string, unknown>): void;
   parameters: Record<string, ParameterDefinition>;
   parameterValues: Record<string, unknown>;
+  compact?: boolean;
   onAddToSourceQueryAsColumn?(expression: SqlExpression): void;
   onAddToSourceQueryAsMeasure?(measure: Measure): void;
 }
@@ -73,6 +75,7 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     onUpdateParameterValues,
     parameters,
     parameterValues,
+    compact,
     onAddToSourceQueryAsColumn,
     onAddToSourceQueryAsMeasure,
   } = props;
@@ -351,11 +354,12 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
   const namedParameters = Object.entries(parameters ?? {});
 
   return (
-    <div className="control-pane">
+    <div className={classNames('control-pane', { compact })}>
       {namedParameters.map(([name, parameter], i) => {
         const visible = evaluateFunctor(parameter.visible, parameterValues, querySource);
         const defined = evaluateFunctor(parameter.defined, parameterValues, querySource);
         if (visible === false || defined === false) return;
+        if (compact && !parameter.important) return;
 
         const value = parameterValues[name];
         function onValueChange(newValue: unknown) {
@@ -368,14 +372,17 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
           onValueChange,
         );
 
-        const description = evaluateFunctor(parameter.description, parameterValues, querySource);
+        const label =
+          evaluateFunctor(parameter.label, parameterValues, querySource) ||
+          AutoForm.makeLabelName(name);
+        const description = compact
+          ? undefined
+          : evaluateFunctor(parameter.description, parameterValues, querySource);
         const formGroup = (
           <FormGroupWithInfo
             key={i}
-            label={
-              evaluateFunctor(parameter.label, parameterValues, querySource) ||
-              AutoForm.makeLabelName(name)
-            }
+            label={label}
+            inline={compact}
             info={description && <PopoverText>{description}</PopoverText>}
           >
             {element}

@@ -90,6 +90,7 @@ export type TypedParameterDefinition<Type extends keyof ParameterTypes> = TypedE
   defaultValue?: ModuleFunctor<ParameterTypes[Type] | undefined>;
   sticky?: boolean;
   required?: ModuleFunctor<boolean>;
+  important?: boolean;
   description?: ModuleFunctor<string>;
   placeholder?: string;
   defined?: ModuleFunctor<boolean>;
