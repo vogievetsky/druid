@@ -93,7 +93,7 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
       },
       defaultValue: 'PT1H',
       visible: ({ parameterValues }) =>
-        (parameterValues.splitColumns || []).some((c: any) => c.name === '__time'),
+        (parameterValues.splitColumns || []).some((c: ExpressionMeta) => c.name === '__time'),
     },
 
     showColumns: {

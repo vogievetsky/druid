@@ -19,6 +19,7 @@
 import {
   Button,
   ButtonGroup,
+  Intent,
   Menu,
   MenuItem,
   Popover,
@@ -232,7 +233,12 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
                     );
                   }}
                 />
-                <MenuItem icon={IconNames.TRASH} text="Delete module" onClick={onDelete} />
+                <MenuItem
+                  icon={IconNames.TRASH}
+                  text="Delete module"
+                  intent={Intent.DANGER}
+                  onClick={onDelete}
+                />
               </Menu>
             }
           >
