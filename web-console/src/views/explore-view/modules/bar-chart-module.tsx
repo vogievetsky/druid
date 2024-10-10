@@ -17,7 +17,7 @@
  */
 
 import { IconNames } from '@blueprintjs/icons';
-import { L } from '@druid-toolkit/query';
+import { F, L } from '@druid-toolkit/query';
 import type { ECharts } from 'echarts';
 import * as echarts from 'echarts';
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -36,6 +36,7 @@ const OVERALL_LABEL = 'Overall';
 
 interface BarChartParameterValues {
   splitColumn: ExpressionMeta;
+  timeBucket: string;
   measure: ExpressionMeta;
   measureToSort: ExpressionMeta;
   limit: number;
@@ -52,6 +53,22 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       transferGroup: 'show',
       required: true,
     },
+    timeBucket: {
+      type: 'option',
+      label: 'Time bucket',
+      options: ['PT1M', 'PT5M', 'PT1H', 'P1D', 'P1M'],
+      optionLabels: {
+        PT1M: '1 minute',
+        PT5M: '5 minutes',
+        PT1H: '1 hour',
+        P1D: '1 day',
+        P1M: '1 month',
+      },
+      defaultValue: 'PT1H',
+      visible: ({ parameterValues, querySource }) =>
+        parameterValues.splitColumn.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
+    },
+
     measure: {
       type: 'measure',
       label: 'Measure to show',
@@ -61,7 +78,8 @@ ModuleRepository.registerModule<BarChartParameterValues>({
     },
     measureToSort: {
       type: 'measure',
-      label: 'Measure to sort (default to shown)',
+      label: 'Measure to sort',
+      description: 'Default to shown measure',
     },
     limit: {
       type: 'number',
@@ -74,16 +92,23 @@ ModuleRepository.registerModule<BarChartParameterValues>({
     const { querySource, where, setWhere, parameterValues, stage, runSqlQuery } = props;
     const chartRef = useRef<ECharts>();
 
-    const { splitColumn, measure, measureToSort, limit } = parameterValues;
+    const { splitColumn, timeBucket, measure, measureToSort, limit } = parameterValues;
 
     const dataQuery = useMemo(() => {
       const splitExpression = splitColumn ? splitColumn.expression : L(OVERALL_LABEL);
 
       return querySource
         .getInitQuery(where)
-        .addSelect(splitExpression.as('dim'), { addToGroupBy: 'end' })
+        .addSelect(
+          splitExpression.applyIf(timeBucket, ex => F.timeFloor(ex, timeBucket)).as('dim'),
+          {
+            addToGroupBy: 'end',
+            addToOrderBy: !measureToSort && timeBucket ? 'end' : undefined,
+            direction: 'ASC',
+          },
+        )
         .addSelect(measure.expression.as('met'), {
-          addToOrderBy: measureToSort ? undefined : 'end',
+          addToOrderBy: !measureToSort && !timeBucket ? 'end' : undefined,
           direction: 'DESC',
         })
         .applyIf(measureToSort, q =>

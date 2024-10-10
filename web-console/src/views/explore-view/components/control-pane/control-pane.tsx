@@ -89,7 +89,7 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
     onDropMeasure?: (measure: Measure) => void;
   } {
     const effectiveValue = value ?? effectiveParameterDefault(parameter, querySource);
-    const required = evaluateFunctor(parameter.required, parameterValues);
+    const required = evaluateFunctor(parameter.required, parameterValues, querySource);
     switch (parameter.type) {
       case 'boolean': {
         return {
@@ -352,7 +352,7 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
   return (
     <div className="control-pane">
       {namedParameters.map(([name, parameter], i) => {
-        const visible = evaluateFunctor(parameter.visible, parameterValues);
+        const visible = evaluateFunctor(parameter.visible, parameterValues, querySource);
         if (visible === false) return;
 
         const value = parameterValues[name];
@@ -366,12 +366,13 @@ export const ControlPane = function ControlPane(props: ControlPaneProps) {
           onValueChange,
         );
 
-        const description = evaluateFunctor(parameter.description, parameterValues);
+        const description = evaluateFunctor(parameter.description, parameterValues, querySource);
         const formGroup = (
           <FormGroupWithInfo
             key={i}
             label={
-              evaluateFunctor(parameter.label, parameterValues) || AutoForm.makeLabelName(name)
+              evaluateFunctor(parameter.label, parameterValues, querySource) ||
+              AutoForm.makeLabelName(name)
             }
             info={description && <PopoverText>{description}</PopoverText>}
           >

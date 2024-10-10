@@ -92,8 +92,10 @@ ModuleRepository.registerModule<GroupingTableParameterValues>({
         P1M: '1 month',
       },
       defaultValue: 'PT1H',
-      visible: ({ parameterValues }) =>
-        (parameterValues.splitColumns || []).some((c: ExpressionMeta) => c.name === '__time'),
+      visible: ({ parameterValues, querySource }) =>
+        (parameterValues.splitColumns || []).some(
+          (c: ExpressionMeta) => c.evaluateSqlType(querySource?.columns) === 'TIMESTAMP',
+        ),
     },
 
     showColumns: {

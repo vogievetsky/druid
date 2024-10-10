@@ -26,11 +26,17 @@ import type { QuerySource } from './query-source';
 
 export type OptionValue = string | number;
 
-export type ModuleFunctor<T> = T | ((options: { parameterValues: ParameterValues }) => T);
+export type ModuleFunctor<T> =
+  | T
+  | ((options: { parameterValues: ParameterValues; querySource: QuerySource }) => T);
 
-export function evaluateFunctor<T>(fn: ModuleFunctor<T>, parameterValues: ParameterValues): T {
+export function evaluateFunctor<T>(
+  fn: ModuleFunctor<T>,
+  parameterValues: ParameterValues,
+  querySource: QuerySource | undefined,
+): T {
   if (typeof fn === 'function') {
-    return (fn as any)({ parameterValues });
+    return (fn as any)({ parameterValues, querySource });
   } else {
     return fn;
   }

@@ -57,6 +57,18 @@ export class ExpressionMeta {
     });
   }
 
+  static evaluateSqlType(
+    expression: SqlExpression,
+    columns: readonly Column[] = [],
+  ): string | undefined {
+    if (expression instanceof SqlColumn) {
+      const columnName = expression.getName();
+      const myColumn = columns.find(({ name }) => name === columnName);
+      return myColumn?.sqlType;
+    }
+    return;
+  }
+
   public readonly expression: SqlExpression;
   public readonly as?: string;
 
@@ -98,5 +110,9 @@ export class ExpressionMeta {
     const renamedExpression = renameColumnsInExpression(this.expression, rename);
     if (renamedExpression === this.expression) return this;
     return this.changeExpression(renamedExpression);
+  }
+
+  public evaluateSqlType(columns?: readonly Column[] | undefined): string | undefined {
+    return ExpressionMeta.evaluateSqlType(this.expression, columns);
   }
 }
