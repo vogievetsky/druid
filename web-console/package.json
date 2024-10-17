@@ -108,7 +108,6 @@
     "@awesome-code-style/prettier-config": "^4.0.0",
     "@awesome-code-style/stylelint-config": "^6.0.0",
     "@testing-library/react": "^14.0.0",
-    "@types/classnames": "^2.2.9",
     "@types/d3-array": "^3.2.1",
     "@types/d3-axis": "^3.0.6",
     "@types/d3-dsv": "^3.0.7",
