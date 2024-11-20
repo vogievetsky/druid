@@ -18,6 +18,7 @@
 
 import React from 'react';
 
+import { Typr } from '../../components/typr/typr';
 import type { Capabilities } from '../../helpers';
 
 import { DatasourcesCard } from './datasources-card/datasources-card';
@@ -54,6 +55,9 @@ export const HomeView = React.memo(function HomeView(props: HomeViewProps) {
       )}
       {capabilities.hasSqlOrCoordinatorAccess() && <ServicesCard capabilities={capabilities} />}
       {capabilities.hasCoordinatorAccess() && <LookupsCard capabilities={capabilities} />}
+      <div style={{ position: 'absolute', top: 170, left: 30 }}>
+        <Typr />
+      </div>
     </div>
   );
 });
