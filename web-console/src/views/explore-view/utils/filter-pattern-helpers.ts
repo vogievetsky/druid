@@ -16,10 +16,11 @@
  * limitations under the License.
  */
 
+import { isDate } from 'date-fns';
 import type { Column, FilterPattern, SqlExpression } from 'druid-query-toolkit';
 import { filterPatternToExpression, SqlComparison, SqlMulti, SqlQuery } from 'druid-query-toolkit';
 
-import { Duration } from '../../../utils';
+import { Duration, prettyFormatIsoDateWithMsIfNeeded } from '../../../utils';
 
 import { DATE_FORMAT } from './date-format';
 
@@ -69,7 +70,11 @@ export function formatPatternWithoutNegation(pattern: FilterPattern): string {
   switch (pattern.type) {
     case 'values':
       return `${pattern.column}: ${pattern.values
-        .map(v => (v === '' ? 'empty' : String(v)))
+        .map(v => {
+          if (v === '') return 'empty';
+          if (isDate(v)) return prettyFormatIsoDateWithMsIfNeeded(v as Date);
+          return String(v);
+        })
         .join(', ')}`;
 
     case 'contains':
