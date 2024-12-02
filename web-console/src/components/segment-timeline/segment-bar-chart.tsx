@@ -26,7 +26,7 @@ import { Api } from '../../singletons';
 import { Duration, filterMap, getApiArray, queryDruidSql, TZ_UTC } from '../../utils';
 import { Loader } from '../loader/loader';
 
-import type { IntervalRow } from './common';
+import type { IntervalRow } from './interval';
 import type { SegmentBarChartRenderProps } from './segment-bar-chart-render';
 import { SegmentBarChartRender } from './segment-bar-chart-render';
 

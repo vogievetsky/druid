@@ -51,8 +51,8 @@ import {
 import { Stage } from '../../utils/stage';
 import { Loader } from '../loader/loader';
 
-import type { IntervalStat } from './common';
-import { formatIsoDateOnly, getIntervalStatTitle, INTERVAL_STATS } from './common';
+import type { IntervalStat } from './interval';
+import { formatIsoDateOnly, getIntervalStatTitle, INTERVAL_STATS } from './interval';
 import type { SegmentBarChartProps } from './segment-bar-chart';
 import { SegmentBarChart } from './segment-bar-chart';
 

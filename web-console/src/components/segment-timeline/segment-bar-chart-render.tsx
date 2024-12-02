@@ -24,6 +24,7 @@ import classNames from 'classnames';
 import { max, sort, sum } from 'd3-array';
 import { axisBottom, axisLeft } from 'd3-axis';
 import { scaleLinear, scaleUtc } from 'd3-scale';
+import { select } from 'd3-selection';
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
@@ -50,9 +51,8 @@ import type { Margin, Stage } from '../../utils/stage';
 import type { PortalBubbleOpenOn } from '../portal-bubble/portal-bubble';
 import { PortalBubble } from '../portal-bubble/portal-bubble';
 
-import { ChartAxis } from './chart-axis';
-import type { IntervalBar, IntervalRow, IntervalStat, TrimmedIntervalRow } from './common';
-import { aggregateSegmentStats, formatIntervalStat, formatIsoDateOnly } from './common';
+import type { IntervalBar, IntervalRow, IntervalStat, TrimmedIntervalRow } from './interval';
+import { aggregateSegmentStats, formatIntervalStat, formatIsoDateOnly } from './interval';
 
 import './segment-bar-chart-render.scss';
 
@@ -681,19 +681,23 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
         onMouseDown={handleMouseDown}
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
-          <ChartAxis
+          <g
             className="gridline-x"
             transform="translate(0,0)"
-            axis={axisLeft(statScale)
-              .tickValues(statScale.ticks(3).filter(v => v !== 0))
-              .tickSize(-innerStage.width)
-              .tickFormat(() => '')
-              .tickSizeOuter(0)}
+            ref={(node: any) =>
+              select(node).call(
+                axisLeft(statScale)
+                  .tickValues(statScale.ticks(3).filter(v => v !== 0))
+                  .tickSize(-innerStage.width)
+                  .tickFormat(() => '')
+                  .tickSizeOuter(0),
+              )
+            }
           />
-          <ChartAxis
+          <g
             className="axis-x"
             transform={`translate(0,${innerStage.height})`}
-            axis={axisBottom(timeScale)}
+            ref={(node: any) => select(node).call(axisBottom(timeScale))}
           />
           <rect
             className={classNames('time-shift-indicator', {
@@ -704,11 +708,15 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
             width={innerStage.width}
             height={CHART_MARGIN.bottom}
           />
-          <ChartAxis
+          <g
             className="axis-y"
-            axis={axisLeft(statScale)
-              .ticks(3)
-              .tickFormat(e => formatTickRate(e.valueOf()))}
+            ref={(node: any) =>
+              select(node).call(
+                axisLeft(statScale)
+                  .ticks(3)
+                  .tickFormat(e => formatTickRate(e.valueOf())),
+              )
+            }
           />
           <g className="bar-group">
             {bubbleInfo && (
