@@ -124,7 +124,7 @@ ModuleRepository.registerModule<BarChartParameterValues>({
           q.addOrderBy(measureToSort.expression.toOrderByExpression('DESC')),
         )
         .changeLimitValue(limit);
-    }, [querySource, where, splitColumn, measure, measureToSort, limit]);
+    }, [querySource, where, splitColumn, timeBucket, measure, measureToSort, limit]);
 
     const [sourceDataState, queryManager] = useQueryManager({
       query: dataQuery,
