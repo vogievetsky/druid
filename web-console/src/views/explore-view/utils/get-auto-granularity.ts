@@ -37,7 +37,11 @@ function getTimeSpanInExpression(
   return;
 }
 
-export function getAutoGranularity(where: SqlExpression, timeColumnName: string): string {
+export function getAutoGranularity(
+  where: SqlExpression,
+  timeColumnName: string,
+  maxEntries: number,
+): string {
   const timeSpan = getTimeSpanInExpression(where, timeColumnName);
   if (!timeSpan) return 'P1D';
   return Duration.pickSmallestGranularityThatFits(
@@ -58,6 +62,6 @@ export function getAutoGranularity(where: SqlExpression, timeColumnName: string)
       'P1Y',
     ].map(s => new Duration(s)),
     timeSpan,
-    200,
+    maxEntries,
   ).toString();
 }

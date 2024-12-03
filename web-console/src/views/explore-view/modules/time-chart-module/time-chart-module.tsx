@@ -139,7 +139,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
     const timeColumnName = querySource.columns.find(column => column.sqlType === 'TIMESTAMP')?.name;
     const timeGranularity =
       parameterValues.timeGranularity === 'auto'
-        ? getAutoGranularity(where, timeColumnName || '__time')
+        ? getAutoGranularity(where, timeColumnName || '__time', 200)
         : parameterValues.timeGranularity;
 
     const { splitColumn, numberToStack, showOthers, measure, snappyHighlight } = parameterValues;

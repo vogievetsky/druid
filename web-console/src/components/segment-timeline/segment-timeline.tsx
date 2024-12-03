@@ -45,10 +45,10 @@ import {
   localToUtcDateRange,
   maxDate,
   queryDruidSql,
+  Stage,
   TZ_UTC,
   utcToLocalDateRange,
 } from '../../utils';
-import { Stage } from '../../utils/stage';
 import { Loader } from '../loader/loader';
 
 import type { IntervalStat } from './interval';

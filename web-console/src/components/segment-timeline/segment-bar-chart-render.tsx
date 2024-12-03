@@ -31,6 +31,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { Rule } from '../../druid-models';
 import { getDatasourceColor, RuleUtil } from '../../druid-models';
 import { useClock, useGlobalEventListener } from '../../hooks';
+import type { Margin, Stage } from '../../utils';
 import {
   allSameValue,
   arraysEqualByElement,
@@ -47,7 +48,6 @@ import {
   TZ_UTC,
   uniq,
 } from '../../utils';
-import type { Margin, Stage } from '../../utils/stage';
 import type { PortalBubbleOpenOn } from '../portal-bubble/portal-bubble';
 import { PortalBubble } from '../portal-bubble/portal-bubble';
 
@@ -167,6 +167,9 @@ function stackIntervalRows(trimmedIntervalRows: TrimmedIntervalRow[]): {
 
     const totalSizeDiff = datasourceToTotalSize[b.datasource] - datasourceToTotalSize[a.datasource];
     if (totalSizeDiff) return totalSizeDiff;
+
+    const datasourceNameDiff = b.datasource.localeCompare(a.datasource);
+    if (datasourceNameDiff) return datasourceNameDiff;
 
     return Number(a.realtime) - Number(b.realtime);
   });

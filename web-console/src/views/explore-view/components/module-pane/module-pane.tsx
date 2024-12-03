@@ -37,8 +37,8 @@ import {
   LocalStorageKeys,
   localStorageSetJson,
   mapRecord,
+  Stage,
 } from '../../../../utils';
-import { Stage } from '../../../../utils/stage';
 import type {
   Measure,
   ModuleState,

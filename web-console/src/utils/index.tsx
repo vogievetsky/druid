@@ -36,6 +36,7 @@ export * from './query-action';
 export * from './query-manager';
 export * from './sanitizers';
 export * from './sql';
+export * from './stage';
 export * from './table-helpers';
 export * from './types';
 export * from './values-query';
