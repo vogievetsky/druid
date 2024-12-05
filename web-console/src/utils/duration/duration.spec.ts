@@ -24,6 +24,8 @@ describe('Duration', () => {
 
   describe('errors', () => {
     it('throws error if invalid duration', () => {
+      expect(() => new Duration(undefined as any)).toThrow('new Duration called with undefined');
+
       expect(() => new Duration('')).toThrow("Can not parse duration ''");
 
       expect(() => new Duration('P00')).toThrow("Can not parse duration 'P00'");

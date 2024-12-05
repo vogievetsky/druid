@@ -176,7 +176,7 @@ export class Duration {
   }
 
   constructor(spans: DurationValue | string) {
-    if (!spans) throw new TypeError('new Duration called with invalid type');
+    if (typeof spans === 'undefined') throw new TypeError('new Duration called with undefined');
     const effectiveSpans: DurationValue =
       typeof spans === 'string' ? getSpansFromString(spans) : removeZeros(spans);
 
