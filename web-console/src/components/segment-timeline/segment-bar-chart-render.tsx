@@ -283,13 +283,15 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
   const now = useClock(minute.canonicalLength);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
+  const innerStage = stage.applyMargin(CHART_MARGIN);
+
   const trimGranularity = useMemo(() => {
     return Duration.pickSmallestGranularityThatFits(
       POSSIBLE_GRANULARITIES,
       dateRange[1].valueOf() - dateRange[0].valueOf(),
-      Math.floor(stage.width / MIN_BAR_WIDTH),
+      Math.floor(Math.max(innerStage.width, 10) / MIN_BAR_WIDTH),
     ).toString();
-  }, [dateRange, stage.width]);
+  }, [dateRange, innerStage.width]);
 
   const { intervalBars, intervalTree } = useMemo(() => {
     const shownIntervalRows = intervalRows.filter(
@@ -354,8 +356,6 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
 
     return stackIntervalRows(fullyGroupedSegmentRows);
   }, [intervalRows, trimGranularity, dateRange, shownDatasource]);
-
-  const innerStage = stage.applyMargin(CHART_MARGIN);
 
   const baseTimeScale = scaleUtc()
     .domain(dateRange)
@@ -523,6 +523,8 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
       setSelection(undefined);
     }
   });
+
+  if (innerStage.isInvalid()) return;
 
   function startEndToXWidth({ start, end }: { start: Date; end: Date }) {
     const xStart = clamp(timeScale(start), 0, innerStage.width);

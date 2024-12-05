@@ -36,7 +36,7 @@ import {
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
-import { DATE_FORMAT, getAutoGranularity } from '../../utils';
+import { DATE_FORMAT, getAutoGranularity, updateFilterClause } from '../../utils';
 
 interface MultiAxisChartHighlight extends PortalBubbleOpenOn {
   start: Date;
@@ -254,7 +254,8 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
                 onClick={() => {
                   if (!timeColumnName) return;
                   setWhere(
-                    where.changeClauseInWhere(
+                    updateFilterClause(
+                      where,
                       F(
                         'TIME_IN_INTERVAL',
                         C(timeColumnName),

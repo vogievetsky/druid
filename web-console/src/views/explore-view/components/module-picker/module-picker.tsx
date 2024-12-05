@@ -44,7 +44,7 @@ export const ModulePicker = React.memo(function ModulePicker(props: ModulePicker
         className="picker-button"
         minimal
         fill={fill}
-        position={Position.BOTTOM_RIGHT}
+        position={Position.BOTTOM_LEFT}
         content={
           <Menu>
             {modules.map((module, i) => (

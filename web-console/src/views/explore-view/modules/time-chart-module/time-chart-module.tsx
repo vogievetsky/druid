@@ -16,55 +16,41 @@
  * limitations under the License.
  */
 
-import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
-import { C, F, L, SqlCase } from 'druid-query-toolkit';
-import type { ECharts } from 'echarts';
-import * as echarts from 'echarts';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SqlExpression } from 'druid-query-toolkit';
+import { C, F, fitFilterPatterns, L, SqlCase } from 'druid-query-toolkit';
+import { useMemo } from 'react';
 
-import type { PortalBubbleOpenOn } from '../../../../components';
-import { Loader, PortalBubble } from '../../../../components';
+import { Loader } from '../../../../components';
 import { useQueryManager } from '../../../../hooks';
-import {
-  Duration,
-  formatInteger,
-  formatNumber,
-  prettyFormatIsoDateTick,
-  prettyFormatIsoDateWithMsIfNeeded,
-} from '../../../../utils';
+import { deleteKeys, Duration, TZ_UTC } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
-import { DATE_FORMAT, getAutoGranularity } from '../../utils';
+import { getAutoGranularity, updateFilterClause } from '../../utils';
+
+import type { BarUnit, Range } from './continuous-chart-render';
+import { ContinuousChartRender } from './continuous-chart-render';
 
 const TIME_NAME = '__t__';
-const METRIC_NAME = '__met__';
 const STACK_NAME = '__stack__';
 const OTHERS_VALUE = 'Others';
+const MIN_SLICE_WIDTH = 4;
 
-function transformData(data: any[], vs: string[]): Record<string, number>[] {
-  const zeroDatum = Object.fromEntries(vs.map(v => [v, 0]));
-
-  let lastTime = -1;
-  let lastDatum: Record<string, number> | undefined;
-  const ret = [];
-  for (const d of data) {
-    const t = d[TIME_NAME];
-    if (t.valueOf() !== lastTime) {
-      if (lastDatum) ret.push(lastDatum);
-      lastTime = t.valueOf();
-      lastDatum = { ...zeroDatum, [TIME_NAME]: t };
+function getRangeInExpression(
+  expression: SqlExpression,
+  timeColumnName: string,
+): Range | undefined {
+  const patterns = fitFilterPatterns(expression);
+  for (const pattern of patterns) {
+    if (pattern.type === 'timeInterval' && pattern.column === timeColumnName) {
+      return [pattern.start.valueOf(), pattern.end.valueOf()];
+    } else if (pattern.type === 'timeRelative' && pattern.column === timeColumnName) {
+      return undefined; // ToDo: something cool here
     }
-    lastDatum![d[STACK_NAME]] = d[METRIC_NAME];
   }
-  if (lastDatum) ret.push(lastDatum);
-  return ret;
-}
 
-interface TimeChartHighlight extends PortalBubbleOpenOn {
-  start: Date;
-  end: Date;
+  return;
 }
 
 interface TimeChartParameterValues {
@@ -73,7 +59,6 @@ interface TimeChartParameterValues {
   numberToStack: number;
   showOthers: boolean;
   measure: ExpressionMeta;
-  snappyHighlight: boolean;
 }
 
 ModuleRepository.registerModule<TimeChartParameterValues>({
@@ -123,46 +108,44 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
-    snappyHighlight: {
-      type: 'boolean',
-      label: 'Snap highlight to granularity',
-      defaultValue: true,
-      sticky: true,
-    },
   },
   component: function TimeChartModule(props) {
     const { querySource, where, setWhere, parameterValues, stage, runSqlQuery } = props;
-    const containerRef = useRef<HTMLDivElement>();
-    const chartRef = useRef<ECharts>();
-    const [highlight, setHighlight] = useState<TimeChartHighlight | undefined>();
 
     const timeColumnName = querySource.columns.find(column => column.sqlType === 'TIMESTAMP')?.name;
     const timeGranularity =
       parameterValues.timeGranularity === 'auto'
-        ? getAutoGranularity(where, timeColumnName || '__time', 200)
+        ? getAutoGranularity(
+            where,
+            timeColumnName || '__time',
+            Math.floor(Math.max(stage.width - 80, 10) / MIN_SLICE_WIDTH),
+          )
         : parameterValues.timeGranularity;
 
-    const { splitColumn, numberToStack, showOthers, measure, snappyHighlight } = parameterValues;
+    const { splitColumn, numberToStack, showOthers, measure } = parameterValues;
 
     const dataQuery = useMemo(() => {
       return {
         initQuery: querySource.getInitQuery(where),
+        timeGranularity,
         measure,
         splitExpression: splitColumn?.expression,
         numberToStack,
         showOthers,
       };
-    }, [querySource, where, measure, splitColumn, numberToStack, showOthers]);
+    }, [querySource, where, timeGranularity, measure, splitColumn, numberToStack, showOthers]);
 
     const [sourceDataState, queryManager] = useQueryManager({
       query: dataQuery,
       processQuery: async (
-        { initQuery, measure, splitExpression, numberToStack, showOthers },
+        { initQuery, timeGranularity, measure, splitExpression, numberToStack, showOthers },
         cancelToken,
       ) => {
         if (!timeColumnName) {
           throw new Error(`Must have a column of type TIMESTAMP for the time chart to work`);
         }
+
+        const duration = new Duration(timeGranularity);
 
         const vs = splitExpression
           ? (
@@ -187,7 +170,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
               .addSelect(F.timeFloor(C(timeColumnName), L(timeGranularity)).as(TIME_NAME), {
                 addToGroupBy: 'end',
                 addToOrderBy: 'end',
-                direction: 'ASC',
+                direction: 'DESC',
               })
               .applyIf(splitExpression, q => {
                 if (!splitExpression || !vs) return q; // Should never get here, doing this to make peace between eslint and TS
@@ -199,247 +182,56 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
                   { addToGroupBy: 'end' },
                 );
               })
-              .addSelect(measure.expression.as(METRIC_NAME)),
+              .addSelect(measure.expression.as(measure.name)),
             cancelToken,
           )
-        ).toObjectArray();
+        )
+          .toObjectArray()
+          .map((b): BarUnit => {
+            return {
+              start: b[TIME_NAME].valueOf(),
+              end: duration.shift(b[TIME_NAME], TZ_UTC, 1).valueOf(),
+              measures: deleteKeys(b, [TIME_NAME]),
+            };
+          });
 
         const effectiveVs = vs && showOthers ? vs.concat(OTHERS_VALUE) : vs;
         return {
           effectiveVs,
-          sourceData: effectiveVs ? transformData(dataset, effectiveVs) : dataset,
+          sourceData: dataset,
           measure,
         };
       },
     });
 
-    function setupChart(container: HTMLDivElement) {
-      const myChart = echarts.init(container, 'dark');
-
-      myChart.setOption({
-        dataset: {
-          dimensions: [],
-          source: [],
-        },
-        tooltip: {
-          trigger: 'axis',
-          transitionDuration: 0,
-          axisPointer: {
-            type: 'cross',
-            label: {
-              backgroundColor: '#6a7985',
-              formatter(d: any) {
-                if (d.axisDimension === 'x') {
-                  return prettyFormatIsoDateWithMsIfNeeded(new Date(d.value).toISOString());
-                } else {
-                  return Math.abs(d.value) < 1 ? formatNumber(d.value) : formatInteger(d.value);
-                }
-              },
-            },
-          },
-        },
-        legend: {
-          data: [],
-        },
-        brush: {
-          toolbox: ['lineX'],
-          xAxisIndex: 0,
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true,
-        },
-        xAxis: [
-          {
-            type: 'time',
-            boundaryGap: false,
-            axisLabel: {
-              formatter(value: any) {
-                return prettyFormatIsoDateTick(new Date(value));
-              },
-            },
-          },
-        ],
-        yAxis: [
-          {
-            type: 'value',
-          },
-        ],
-        series: [],
-      });
-
-      // auto-enables the brush tool on load
-      myChart.dispatchAction({
-        type: 'takeGlobalCursor',
-        key: 'brush',
-        brushOption: {
-          brushType: 'lineX',
-        },
-      });
-
-      return myChart;
-    }
-
-    useEffect(() => {
-      return () => {
-        const myChart = chartRef.current;
-        if (!myChart) return;
-        myChart.dispose();
-      };
-    }, []);
-
-    useEffect(() => {
-      const myChart = chartRef.current;
-      const data = sourceDataState.data;
-      if (!myChart || !data) return;
-      const { effectiveVs, sourceData, measure } = data;
-
-      myChart.off('brush');
-
-      myChart.on('brush', (params: any) => {
-        if (!params.areas.length) return;
-
-        let start = params.areas[0].coordRange[0];
-        let end = params.areas[0].coordRange[1];
-        if (snappyHighlight) {
-          const duration = new Duration(timeGranularity);
-          start = duration.round(start, 'Etc/UTC');
-          end = duration.round(end, 'Etc/UTC');
-        }
-
-        const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[0]);
-        const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[1]);
-
-        setHighlight({
-          title: DATE_FORMAT.formatRange(start, end),
-          x: (x0 + x1) / 2,
-          y: 50,
-          start,
-          end,
-          text: (
-            <div className="button-bar">
-              <Button
-                text="Zoom in"
-                intent={Intent.PRIMARY}
-                small
-                onClick={() => {
-                  if (!timeColumnName) return;
-                  setWhere(
-                    where.changeClauseInWhere(
-                      F(
-                        'TIME_IN_INTERVAL',
-                        C(timeColumnName),
-                        `${start.toISOString()}/${end.toISOString()}`,
-                      ),
-                    ),
-                  );
-                  setHighlight(undefined);
-                  myChart.dispatchAction({
-                    type: 'brush',
-                    command: 'clear',
-                    areas: [],
-                  });
-                }}
-              />
-              <Button
-                text="Close"
-                small
-                onClick={() => {
-                  setHighlight(undefined);
-                  myChart.dispatchAction({
-                    type: 'brush',
-                    command: 'clear',
-                    areas: [],
-                  });
-                }}
-              />
-            </div>
-          ),
-        });
-      });
-
-      const showSymbol = sourceData.length < 2;
-      myChart.setOption(
-        {
-          dataset: {
-            dimensions: [TIME_NAME].concat(effectiveVs || [METRIC_NAME]),
-            source: sourceData,
-          },
-          animation: false,
-          legend: effectiveVs
-            ? {
-                data: effectiveVs,
-              }
-            : undefined,
-          series: (effectiveVs || [METRIC_NAME]).map(v => {
-            return {
-              id: v,
-              name: effectiveVs ? v : measure.name,
-              type: 'line',
-              stack: 'Total',
-              showSymbol,
-              lineStyle: v === OTHERS_VALUE ? { color: '#ccc' } : {},
-              areaStyle: v === OTHERS_VALUE ? { color: '#ccc' } : {},
-              emphasis: {
-                focus: 'series',
-              },
-              encode: {
-                x: TIME_NAME,
-                y: v,
-                itemId: v,
-              },
-            };
-          }),
-        },
-        {
-          replaceMerge: ['legend', 'series'],
-        },
-      );
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceDataState.data, snappyHighlight]);
-
-    useEffect(() => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-      myChart.resize();
-
-      // if there is a highlight, update its x position
-      // by calculating new pixel position from the highlight's data
-      if (highlight) {
-        const { start, end } = highlight;
-
-        const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, start);
-        const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, end);
-
-        setHighlight({
-          ...highlight,
-          x: (x0 + x1) / 2,
-        });
-      }
-    }, [stage]);
-
+    const rows = sourceDataState.getSomeData()?.sourceData;
+    console.log(rows);
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="time-chart-module module">
-        <div
-          className="echart-container"
-          ref={container => {
-            if (chartRef.current || !container) return;
-            containerRef.current = container;
-            chartRef.current = setupChart(container);
-          }}
-        />
+        {rows && (
+          <ContinuousChartRender
+            rows={rows}
+            stage={stage}
+            domainRange={getRangeInExpression(where, timeColumnName || '__time')}
+            changeRange={([start, end]) =>
+              setWhere(
+                updateFilterClause(
+                  where,
+                  F(
+                    'TIME_IN_INTERVAL',
+                    C(timeColumnName || '__time'),
+                    `${new Date(start).toISOString()}/${new Date(end).toISOString()}`,
+                  ),
+                ),
+              )
+            }
+          />
+        )}
         {errorMessage && <Issue issue={errorMessage} />}
         {sourceDataState.loading && (
           <Loader cancelText="Cancel query" onCancel={() => queryManager.cancelCurrent()} />
         )}
-        <PortalBubble
-          className="module-bubble"
-          openOn={highlight}
-          offsetElement={containerRef.current}
-        />
       </div>
     );
   },
