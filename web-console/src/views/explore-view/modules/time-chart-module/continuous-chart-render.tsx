@@ -159,7 +159,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const maxMeasure = max(stackedRows, d => d.measure + d.offset);
   const statScale = scaleLinear()
     .rangeRound([innerStage.height, 0])
-    .domain([0, (maxMeasure ?? 1) * 1.05]);
+    .domain([0, (maxMeasure ?? 100) * 1.05]);
 
   function handleMouseDown(e: ReactMouseEvent) {
     const svg = svgRef.current;

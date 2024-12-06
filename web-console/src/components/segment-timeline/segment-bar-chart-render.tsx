@@ -340,7 +340,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
   );
   const statScale = scaleLinear()
     .rangeRound([innerStage.height, 0])
-    .domain([0, (maxNormalizedStat ?? 1) * 1.05]);
+    .domain([0, (maxNormalizedStat ?? 100) * 1.05]);
 
   const formatTickRate = (n: number) => {
     switch (shownIntervalStat) {
