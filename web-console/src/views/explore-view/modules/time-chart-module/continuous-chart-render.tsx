@@ -388,7 +388,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
           <g className="bar-group">
             {selection && (
               <rect
-                className="hover-highlight"
+                className={classNames('selection', { finalized: selection.finalized })}
                 {...startEndToXWidth(selection)}
                 y={0}
                 height={innerStage.height}
@@ -417,7 +417,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
             })}
             {selection?.selectedBar && (
               <rect
-                className={classNames('selection', { done: selection.finalized })}
+                className={classNames('selected-bar', { finalized: selection.finalized })}
                 {...barToRect(selection.selectedBar)}
               />
             )}

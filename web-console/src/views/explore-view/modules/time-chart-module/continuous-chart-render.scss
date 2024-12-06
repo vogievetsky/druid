@@ -34,24 +34,22 @@
       fill: #497ee6;
     }
 
-    .hover-highlight {
+    .selection {
       fill: white;
       fill-opacity: 0.1;
+
+      &.finalized {
+        fill-opacity: 0.15;
+      }
     }
 
-    .hovered-bar {
+    .selected-bar {
       fill: none;
-      stroke: #ffffff;
-      stroke-width: 1.5px;
-    }
-
-    .selection {
-      fill: transparent;
       stroke: #ffffff;
       stroke-width: 1px;
       opacity: 0.8;
 
-      &.done {
+      &.finalized {
         opacity: 1;
       }
     }

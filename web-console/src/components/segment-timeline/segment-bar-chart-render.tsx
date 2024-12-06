@@ -173,7 +173,7 @@ interface BubbleInfo {
 interface SelectionRange {
   start: Date;
   end: Date;
-  done?: boolean;
+  finalized?: boolean;
 }
 
 export interface DatasourceRules {
@@ -226,7 +226,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
       selection &&
       selection.start.valueOf() === newSelection.start.valueOf() &&
       selection.end.valueOf() === newSelection.end.valueOf() &&
-      selection.done === newSelection.done
+      selection.finalized === newSelection.finalized
     ) {
       return;
     }
@@ -465,7 +465,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
         }
       } else {
         if (selection) {
-          setSelection({ ...selection, done: true });
+          setSelection({ ...selection, finalized: true });
         }
       }
     } else if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
@@ -605,7 +605,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
           ) : (
             <div>No segments in this interval</div>
           )}
-          {selection.done && (
+          {selection.finalized && (
             <div className="button-bar">
               <Button
                 icon={IconNames.ZOOM_IN}
@@ -707,7 +707,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
               ))}
             {selection && (
               <rect
-                className={classNames('selection', { done: selection.done })}
+                className={classNames('selection', { finalized: selection.finalized })}
                 {...startEndToXWidth(selection)}
                 y={0}
                 height={innerStage.height}
@@ -774,7 +774,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
           className="segment-bar-chart-bubble"
           openOn={hoveredOpenOn}
           offsetElement={svgRef.current}
-          onClose={selection?.done ? () => setSelection(undefined) : undefined}
+          onClose={selection?.finalized ? () => setSelection(undefined) : undefined}
           mute
           direction="up"
         />
