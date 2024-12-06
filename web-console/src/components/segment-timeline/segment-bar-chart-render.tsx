@@ -41,6 +41,7 @@ import {
   filterMap,
   formatBytes,
   formatNumber,
+  formatStartDuration,
   groupBy,
   groupByAsMap,
   minute,
@@ -69,38 +70,6 @@ const POSSIBLE_GRANULARITIES = [
 ];
 
 const EXTEND_X_SCALE_DOMAIN_BY = 1;
-
-function formatStartDuration(start: Date, duration: Duration): string {
-  let sliceLength;
-  const { singleSpan } = duration;
-  switch (singleSpan) {
-    case 'year':
-      sliceLength = 4;
-      break;
-
-    case 'month':
-      sliceLength = 7;
-      break;
-
-    case 'day':
-      sliceLength = 10;
-      break;
-
-    case 'hour':
-      sliceLength = 13;
-      break;
-
-    case 'minute':
-      sliceLength = 16;
-      break;
-
-    default:
-      sliceLength = 19;
-      break;
-  }
-
-  return `${start.toISOString().slice(0, sliceLength)}/${duration}`;
-}
 
 // ---------------------------------------
 // Load rule stuff

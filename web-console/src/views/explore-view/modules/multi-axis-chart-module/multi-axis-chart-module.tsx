@@ -29,6 +29,7 @@ import { useQueryManager } from '../../../../hooks';
 import {
   Duration,
   formatInteger,
+  formatIsoDateRange,
   formatNumber,
   prettyFormatIsoDateTick,
   prettyFormatIsoDateWithMsIfNeeded,
@@ -36,7 +37,7 @@ import {
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
-import { DATE_FORMAT, getAutoGranularity, updateFilterClause } from '../../utils';
+import { getAutoGranularity, updateFilterClause } from '../../utils';
 
 interface MultiAxisChartHighlight extends PortalBubbleOpenOn {
   start: Date;
@@ -240,7 +241,7 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
         const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[1]);
 
         setHighlight({
-          title: DATE_FORMAT.formatRange(start, end),
+          title: formatIsoDateRange(start, end),
           x: (x0 + x1) / 2,
           y: 50,
           start,

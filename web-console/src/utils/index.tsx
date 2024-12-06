@@ -20,6 +20,7 @@ export * from './base64-url';
 export * from './column-metadata';
 export * from './date';
 export * from './date-floor-shift-ceil/date-floor-shift-ceil';
+export * from './date-format';
 export * from './download';
 export * from './download-query-detail-archive';
 export * from './druid-lookup';

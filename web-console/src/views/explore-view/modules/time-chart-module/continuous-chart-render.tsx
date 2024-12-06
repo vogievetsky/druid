@@ -34,9 +34,10 @@ import type { Duration, Margin, Stage } from '../../../../utils';
 import {
   clamp,
   filterMap,
+  formatIsoDateRange,
   formatNumber,
+  formatStartDuration,
   minute,
-  prettyFormatIsoDate,
   TZ_UTC,
 } from '../../../../utils';
 
@@ -84,55 +85,6 @@ export interface ContinuousChartRenderProps {
   stage: Stage;
   domainRange: Range | undefined;
   changeRange(range: Range): void;
-}
-
-function formatStartEnd(start: Date, end: Date): string {
-  let startStr = prettyFormatIsoDate(start);
-  let endStr = prettyFormatIsoDate(end);
-
-  if (start.getMinutes() === 0 && end.getMinutes() === 0) {
-    startStr = startStr.slice(0, 16);
-    endStr = endStr.slice(0, 16);
-  }
-
-  const startDate = startStr.slice(0, 10);
-  if (startDate === endStr.slice(0, 10)) {
-    return `${startDate}, ${startStr.slice(11)} → ${endStr.slice(11)}`;
-  } else {
-    return `${startStr} → ${endStr}`;
-  }
-}
-
-function formatStartDuration(start: Date, duration: Duration): string {
-  let sliceLength;
-  const { singleSpan } = duration;
-  switch (singleSpan) {
-    case 'year':
-      sliceLength = 4;
-      break;
-
-    case 'month':
-      sliceLength = 7;
-      break;
-
-    case 'day':
-      sliceLength = 10;
-      break;
-
-    case 'hour':
-      sliceLength = 13;
-      break;
-
-    case 'minute':
-      sliceLength = 16;
-      break;
-
-    default:
-      sliceLength = 19;
-      break;
-  }
-
-  return `${start.toISOString().slice(0, sliceLength).replace('T', ' ')}/${duration}`;
 }
 
 export const ContinuousChartRender = function ContinuousChartRender(
@@ -369,7 +321,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       if (granularity.shift(new Date(start), TZ_UTC).valueOf() === end) {
         title = formatStartDuration(new Date(start), granularity);
       } else {
-        title = formatStartEnd(new Date(start), new Date(end));
+        title = formatIsoDateRange(new Date(start), new Date(end));
       }
 
       const selectedBars = stackedRows.filter(row => start <= row.start && row.start < end);

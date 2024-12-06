@@ -20,9 +20,7 @@ import { isDate } from 'date-fns';
 import type { Column, FilterPattern, SqlExpression } from 'druid-query-toolkit';
 import { filterPatternToExpression, SqlComparison, SqlMulti, SqlQuery } from 'druid-query-toolkit';
 
-import { Duration, prettyFormatIsoDateWithMsIfNeeded } from '../../../utils';
-
-import { DATE_FORMAT } from './date-format';
+import { Duration, formatIsoDateRange, prettyFormatIsoDateWithMsIfNeeded } from '../../../utils';
 
 const TIME_RELATIVE_TYPES: Record<string, string> = {
   'maxDataTime/': 'latest',
@@ -84,7 +82,7 @@ export function formatPatternWithoutNegation(pattern: FilterPattern): string {
       return `${pattern.column} ~ /${pattern.regexp}/`;
 
     case 'timeInterval': {
-      return DATE_FORMAT.formatRange(pattern.start, pattern.end);
+      return formatIsoDateRange(pattern.start, pattern.end);
     }
 
     case 'timeRelative': {
