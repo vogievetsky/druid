@@ -23,7 +23,7 @@ import { useMemo } from 'react';
 
 import { Loader } from '../../../../components';
 import { useQueryManager } from '../../../../hooks';
-import { deleteKeys, Duration, TZ_UTC } from '../../../../utils';
+import { Duration, TZ_UTC } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
@@ -32,8 +32,9 @@ import { getAutoGranularity, updateFilterClause } from '../../utils';
 import type { BarUnit, Range } from './continuous-chart-render';
 import { ContinuousChartRender } from './continuous-chart-render';
 
-const TIME_NAME = '__t__';
-const STACK_NAME = '__stack__';
+const TIME_NAME = 't';
+const MEASURE_NAME = 'm';
+const STACK_NAME = 's';
 const OTHERS_VALUE = 'Others';
 const MIN_SLICE_WIDTH = 4;
 
@@ -182,7 +183,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
                   { addToGroupBy: 'end' },
                 );
               })
-              .addSelect(measure.expression.as(measure.name)),
+              .addSelect(measure.expression.as(MEASURE_NAME)),
             cancelToken,
           )
         )
@@ -191,7 +192,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
             return {
               start: b[TIME_NAME].valueOf(),
               end: duration.shift(b[TIME_NAME], TZ_UTC, 1).valueOf(),
-              measures: deleteKeys(b, [TIME_NAME]),
+              measure: b[MEASURE_NAME],
+              stack: b[STACK_NAME],
             };
           });
 
@@ -200,18 +202,20 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           effectiveVs,
           sourceData: dataset,
           measure,
+          granularity: new Duration(timeGranularity),
         };
       },
     });
 
-    const rows = sourceDataState.getSomeData()?.sourceData;
-    console.log(rows);
+    const sourceData = sourceDataState.getSomeData();
+    console.log(sourceData?.sourceData);
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="time-chart-module module">
-        {rows && (
+        {sourceData && (
           <ContinuousChartRender
-            rows={rows}
+            rows={sourceData.sourceData}
+            granularity={sourceData.granularity}
             stage={stage}
             domainRange={getRangeInExpression(where, timeColumnName || '__time')}
             changeRange={([start, end]) =>
