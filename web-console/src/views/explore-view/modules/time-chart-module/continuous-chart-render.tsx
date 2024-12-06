@@ -166,11 +166,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
     if (!svg) return;
     e.preventDefault();
 
-    setSelection(undefined);
-    if (selection?.finalized) return;
-
     const rect = svg.getBoundingClientRect();
-    const x = e.clientX - rect.x - CHART_MARGIN.left;
+    const x = clamp(e.clientX - rect.x - CHART_MARGIN.left, 1, innerStage.width - 1);
     const y = e.clientY - rect.y - CHART_MARGIN.top;
     const time = baseTimeScale.invert(x).valueOf();
     const action = y > innerStage.height || e.shiftKey ? 'shift' : 'select';
@@ -178,6 +175,15 @@ export const ContinuousChartRender = function ContinuousChartRender(
       time,
       action,
     });
+    if (action === 'select') {
+      const start = granularity.floor(new Date(time), TZ_UTC);
+      setSelectionIfNeeded({
+        start: start.valueOf(),
+        end: granularity.shift(start, TZ_UTC, 1).valueOf(),
+      });
+    } else {
+      setSelection(undefined);
+    }
   }
 
   useGlobalEventListener('mousemove', (e: MouseEvent) => {
@@ -190,10 +196,11 @@ export const ContinuousChartRender = function ContinuousChartRender(
     if (mouseDownAt) {
       e.preventDefault();
 
-      const b = baseTimeScale.invert(x).valueOf();
       if (mouseDownAt.action === 'shift' || e.shiftKey) {
+        const b = baseTimeScale.invert(x).valueOf();
         setShiftOffset(mouseDownAt.time.valueOf() - b.valueOf());
       } else {
+        const b = baseTimeScale.invert(clamp(x, 1, innerStage.width - 1)).valueOf();
         if (mouseDownAt.time < b) {
           setSelectionIfNeeded({
             start: granularity.floor(new Date(mouseDownAt.time), TZ_UTC).valueOf(),
@@ -230,45 +237,39 @@ export const ContinuousChartRender = function ContinuousChartRender(
     e.preventDefault();
     setMouseDownAt(undefined);
 
+    if (!shiftOffset && !selection) return;
+
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     const x = e.clientX - rect.x - CHART_MARGIN.left;
     const y = e.clientY - rect.y - CHART_MARGIN.top;
 
-    if (shiftOffset || selection) {
-      setShiftOffset(undefined);
-      if (mouseDownAt.action === 'shift' || e.shiftKey) {
-        if (shiftOffset) {
-          changeRange(
-            offsetRange(effectiveDateRange, shiftOffset, n =>
-              granularity.round(new Date(n), TZ_UTC).valueOf(),
-            ),
-          );
-        }
-      } else {
-        if (selection) {
-          setSelection({ ...selection, finalized: true });
-        }
+    setShiftOffset(undefined);
+    if (mouseDownAt.action === 'shift' || e.shiftKey) {
+      if (shiftOffset) {
+        changeRange(
+          offsetRange(effectiveDateRange, shiftOffset, n =>
+            granularity.round(new Date(n), TZ_UTC).valueOf(),
+          ),
+        );
       }
-    } else if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
-      const time = baseTimeScale.invert(x).valueOf();
-      const measure = statScale.invert(y);
+    } else {
+      if (selection) {
+        const time = baseTimeScale.invert(x).valueOf();
+        const measure = statScale.invert(y);
 
-      const clickedBar = findStackedBar(time, measure);
-      if (clickedBar) {
         setSelection({
-          start: clickedBar.start,
-          end: clickedBar.end,
-          selectedBar: clickedBar,
+          ...selection,
           finalized: true,
+          selectedBar: findStackedBar(time, measure),
         });
       }
     }
   });
 
   useGlobalEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && mouseDownAt) {
+    if (e.key === 'Escape') {
       setMouseDownAt(undefined);
       setSelection(undefined);
     }
