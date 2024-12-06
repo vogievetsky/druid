@@ -63,8 +63,8 @@ function offsetRange(dateRange: Range, offset: number): Range {
 interface SelectionRange {
   start: number;
   end: number;
-  done?: boolean;
-  hoverBar?: StackedBarUnit;
+  finalized?: boolean;
+  selectedBar?: StackedBarUnit;
 }
 
 export interface ContinuousChartRenderProps {
@@ -129,7 +129,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
       selection &&
       selection.start === newSelection.start &&
       selection.end === newSelection.end &&
-      selection.done === newSelection.done
+      selection.finalized === newSelection.finalized &&
+      selection.selectedBar === newSelection.selectedBar
     ) {
       return;
     }
@@ -154,6 +155,12 @@ export const ContinuousChartRender = function ContinuousChartRender(
       return withOffset;
     });
   }, [rows]);
+
+  function findStackedBar(time: number, measure: number): StackedBarUnit | undefined {
+    return stackedRows.find(
+      r => r.start <= time && time < r.end && r.offset <= measure && measure < r.measure + r.offset,
+    );
+  }
 
   const stackScale = useMemo(() => {
     return scaleOrdinal(schemeDark2);
@@ -181,7 +188,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     e.preventDefault();
 
     setSelection(undefined);
-    if (selection?.done) return;
+    if (selection?.finalized) return;
 
     const rect = svg.getBoundingClientRect();
     const x = e.clientX - rect.x - CHART_MARGIN.left;
@@ -220,24 +227,18 @@ export const ContinuousChartRender = function ContinuousChartRender(
           });
         }
       }
-    } else if (!selection?.done) {
+    } else if (!selection?.finalized) {
       if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
         const time = baseTimeScale.invert(x).valueOf();
+        const measure = statScale.invert(y);
+
         const start = granularity.floor(new Date(time), TZ_UTC);
         const end = granularity.shift(start, TZ_UTC, 1);
 
-        const measure = statScale.invert(y);
-        const hoverBar = stackedRows.find(
-          r =>
-            r.start <= time &&
-            time < r.end &&
-            r.offset <= measure &&
-            measure < r.measure + r.offset,
-        );
-        setSelection({
+        setSelectionIfNeeded({
           start: start.valueOf(),
           end: end.valueOf(),
-          hoverBar,
+          selectedBar: findStackedBar(time, measure),
         });
       } else {
         setSelection(undefined);
@@ -264,11 +265,22 @@ export const ContinuousChartRender = function ContinuousChartRender(
         }
       } else {
         if (selection) {
-          setSelection({ ...selection, done: true });
+          setSelection({ ...selection, finalized: true });
         }
       }
     } else if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
-      console.log('mouse up in range');
+      const time = baseTimeScale.invert(x).valueOf();
+      const measure = statScale.invert(y);
+
+      const clickedBar = findStackedBar(time, measure);
+      if (clickedBar) {
+        setSelection({
+          start: clickedBar.start,
+          end: clickedBar.end,
+          selectedBar: clickedBar,
+          finalized: true,
+        });
+      }
     }
   });
 
@@ -310,13 +322,13 @@ export const ContinuousChartRender = function ContinuousChartRender(
 
   let hoveredOpenOn: PortalBubbleOpenOn | undefined;
   if (selection) {
-    const { start, end, hoverBar } = selection;
+    const { start, end, selectedBar } = selection;
 
     let title: string;
     let info: string;
-    if (hoverBar) {
-      title = formatStartDuration(new Date(hoverBar.start), granularity);
-      info = formatNumber(hoverBar.measure);
+    if (selectedBar) {
+      title = formatStartDuration(new Date(selectedBar.start), granularity);
+      info = formatNumber(selectedBar.measure);
     } else {
       if (granularity.shift(new Date(start), TZ_UTC).valueOf() === end) {
         title = formatStartDuration(new Date(start), granularity);
@@ -338,9 +350,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
       title,
       text: (
         <>
-          {hoverBar?.stack && <div>{hoverBar?.stack}</div>}
+          {selectedBar?.stack && <div>{selectedBar?.stack}</div>}
           <div>{info}</div>
-          {selection.done && (
+          {selection.finalized && (
             <div className="button-bar">
               <Button
                 icon={IconNames.ZOOM_IN}
@@ -360,6 +372,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
+  console.log('chart render');
+
   const nowX = timeScale(now);
   return (
     <div className="continuous-chart-render">
@@ -373,7 +387,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
           <g
-            className="gridline-x"
+            className="h-gridline"
             transform="translate(0,0)"
             ref={(node: any) =>
               select(node).call(
@@ -425,7 +439,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
               return (
                 <rect
                   key={i}
-                  className={classNames('bar-unit')}
+                  className="bar-unit"
                   {...barToRect(stackedRow)}
                   style={{
                     fill:
@@ -436,10 +450,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
                 />
               );
             })}
-            {selection?.hoverBar && (
+            {selection?.selectedBar && (
               <rect
-                className={classNames('selection', { done: selection.done })}
-                {...barToRect(selection.hoverBar)}
+                className={classNames('selection', { done: selection.finalized })}
+                {...barToRect(selection.selectedBar)}
               />
             )}
             {!!shiftOffset && (
@@ -460,7 +474,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       </svg>
       {!rows.length && (
         <div className="empty-placeholder">
-          <div className="no-data-text">There are no segments in the selected range</div>
+          <div className="no-data-text">There is no data in the selected range</div>
         </div>
       )}
       {svgRef.current && (
@@ -468,7 +482,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
           className="continuous-chart-bubble"
           openOn={hoveredOpenOn}
           offsetElement={svgRef.current}
-          onClose={selection?.done ? () => setSelection(undefined) : undefined}
+          onClose={selection?.finalized ? () => setSelection(undefined) : undefined}
           mute
           direction="up"
         />

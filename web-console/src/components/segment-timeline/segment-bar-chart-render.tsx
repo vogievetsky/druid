@@ -687,7 +687,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
           <g
-            className="gridline-x"
+            className="h-gridline"
             transform="translate(0,0)"
             ref={(node: any) =>
               select(node).call(
