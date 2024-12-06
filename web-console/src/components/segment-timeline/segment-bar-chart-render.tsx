@@ -38,6 +38,7 @@ import {
   clamp,
   day,
   Duration,
+  filterMap,
   formatBytes,
   formatNumber,
   groupBy,
@@ -527,9 +528,12 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
   if (innerStage.isInvalid()) return;
 
   function startEndToXWidth({ start, end }: { start: Date; end: Date }) {
-    const xStart = clamp(timeScale(start), 0, innerStage.width);
-    const xEnd = clamp(timeScale(end), 0, innerStage.width);
+    let xStart = timeScale(start);
+    let xEnd = timeScale(end);
+    if (xEnd < 0 || innerStage.width < xStart) return;
 
+    xStart = clamp(xStart, 0, innerStage.width);
+    xEnd = clamp(xEnd, 0, innerStage.width);
     return {
       x: xStart,
       width: Math.max(xEnd - xStart - 1, 1),
@@ -537,13 +541,16 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
   }
 
   function segmentBarToRect(intervalBar: IntervalBar) {
+    const xWidth = startEndToXWidth(intervalBar);
+    if (!xWidth) return;
+
     const y0 = statScale(intervalBar.offset[shownIntervalStat]);
     const y = statScale(
       intervalBar.normalized[shownIntervalStat] + intervalBar.offset[shownIntervalStat],
     );
 
     return {
-      ...startEndToXWidth(intervalBar),
+      ...xWidth,
       y: y,
       height: y0 - y,
     };
@@ -657,7 +664,9 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
 
   function renderLoadRule(loadRule: Rule, i: number, isDefault: boolean) {
     const [start, end] = loadRuleToDateRange(loadRule);
-    const { x, width } = startEndToXWidth({ start, end });
+    const xWidth = startEndToXWidth({ start, end });
+    if (!xWidth) return;
+
     const title = RuleUtil.ruleToString(loadRule) + (isDefault ? ' (cluster default)' : '');
     return (
       <div
@@ -665,8 +674,8 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
         className={classNames('load-rule', loadRuleToBaseType(loadRule))}
         data-tooltip={title}
         style={{
-          left: x,
-          width,
+          left: xWidth.x,
+          width: xWidth.width,
         }}
       >
         {title}
@@ -699,30 +708,6 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
               )
             }
           />
-          <g
-            className="axis-x"
-            transform={`translate(0,${innerStage.height})`}
-            ref={(node: any) => select(node).call(axisBottom(timeScale))}
-          />
-          <rect
-            className={classNames('time-shift-indicator', {
-              shifting: typeof shiftOffset === 'number',
-            })}
-            x={0}
-            y={innerStage.height}
-            width={innerStage.width}
-            height={CHART_MARGIN.bottom}
-          />
-          <g
-            className="axis-y"
-            ref={(node: any) =>
-              select(node).call(
-                axisLeft(statScale)
-                  .ticks(3)
-                  .tickFormat(e => formatTickRate(e.valueOf())),
-              )
-            }
-          />
           <g className="bar-group">
             {bubbleInfo && (
               <rect
@@ -735,12 +720,14 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
             {0 < nowX && nowX < innerStage.width && (
               <line className="now-line" x1={nowX} x2={nowX} y1={0} y2={innerStage.height + 8} />
             )}
-            {intervalBars.map((intervalBar, i) => {
+            {filterMap(intervalBars, (intervalBar, i) => {
+              const r = segmentBarToRect(intervalBar);
+              if (!r) return;
               return (
                 <rect
                   key={i}
                   className={classNames('bar-unit', { realtime: intervalBar.realtime })}
-                  {...segmentBarToRect(intervalBar)}
+                  {...r}
                   fill={getDatasourceColor(intervalBar.datasource)}
                 />
               );
@@ -771,6 +758,30 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
               />
             )}
           </g>
+          <g
+            className="axis-x"
+            transform={`translate(0,${innerStage.height + 1})`}
+            ref={(node: any) => select(node).call(axisBottom(timeScale))}
+          />
+          <rect
+            className={classNames('time-shift-indicator', {
+              shifting: typeof shiftOffset === 'number',
+            })}
+            x={0}
+            y={innerStage.height}
+            width={innerStage.width}
+            height={CHART_MARGIN.bottom}
+          />
+          <g
+            className="axis-y"
+            ref={(node: any) =>
+              select(node).call(
+                axisLeft(statScale)
+                  .ticks(3)
+                  .tickFormat(e => formatTickRate(e.valueOf())),
+              )
+            }
+          />
         </g>
       </svg>
       {(datasourceRules || datasourceRulesError) && (

@@ -146,7 +146,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           throw new Error(`Must have a column of type TIMESTAMP for the time chart to work`);
         }
 
-        const duration = new Duration(timeGranularity);
+        const granularity = new Duration(timeGranularity);
 
         const vs = splitExpression
           ? (
@@ -161,6 +161,16 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           : undefined;
 
         cancelToken.throwIfRequested();
+
+        if (vs?.length === 0) {
+          // If vs is empty then there is no data at all and no need to do a larger query
+          return {
+            effectiveVs: [],
+            sourceData: [],
+            measure,
+            granularity,
+          };
+        }
 
         const dataset = (
           await runSqlQuery(
@@ -191,7 +201,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           .map((b): BarUnit => {
             return {
               start: b[TIME_NAME].valueOf(),
-              end: duration.shift(b[TIME_NAME], TZ_UTC, 1).valueOf(),
+              end: granularity.shift(b[TIME_NAME], TZ_UTC, 1).valueOf(),
               measure: b[MEASURE_NAME],
               stack: b[STACK_NAME],
             };
@@ -202,7 +212,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           effectiveVs,
           sourceData: dataset,
           measure,
-          granularity: new Duration(timeGranularity),
+          granularity,
         };
       },
     });

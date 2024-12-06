@@ -31,7 +31,14 @@ import type { PortalBubbleOpenOn } from '../../../../components';
 import { PortalBubble } from '../../../../components';
 import { useClock, useGlobalEventListener } from '../../../../hooks';
 import type { Duration, Margin, Stage } from '../../../../utils';
-import { clamp, formatNumber, minute, prettyFormatIsoDate, TZ_UTC } from '../../../../utils';
+import {
+  clamp,
+  filterMap,
+  formatNumber,
+  minute,
+  prettyFormatIsoDate,
+  TZ_UTC,
+} from '../../../../utils';
 
 import './continuous-chart-render.scss';
 
@@ -56,8 +63,11 @@ export interface StackedBarUnit extends BarUnit {
 
 // ---------------------------------------
 
-function offsetRange(dateRange: Range, offset: number): Range {
-  return [dateRange[0] + offset, dateRange[1] + offset];
+function offsetRange(dateRange: Range, offset: number, roundEnd?: (n: number) => number): Range {
+  const d = dateRange[1] - dateRange[0];
+  let newEnd = dateRange[1] + offset;
+  if (roundEnd) newEnd = roundEnd(newEnd);
+  return [newEnd - d, newEnd];
 }
 
 interface SelectionRange {
@@ -74,6 +84,23 @@ export interface ContinuousChartRenderProps {
   stage: Stage;
   domainRange: Range | undefined;
   changeRange(range: Range): void;
+}
+
+function formatStartEnd(start: Date, end: Date): string {
+  let startStr = prettyFormatIsoDate(start);
+  let endStr = prettyFormatIsoDate(end);
+
+  if (start.getMinutes() === 0 && end.getMinutes() === 0) {
+    startStr = startStr.slice(0, 16);
+    endStr = endStr.slice(0, 16);
+  }
+
+  const startDate = startStr.slice(0, 10);
+  if (startDate === endStr.slice(0, 10)) {
+    return `${startDate}, ${startStr.slice(11)} → ${endStr.slice(11)}`;
+  } else {
+    return `${startStr} → ${endStr}`;
+  }
 }
 
 function formatStartDuration(start: Date, duration: Duration): string {
@@ -261,7 +288,11 @@ export const ContinuousChartRender = function ContinuousChartRender(
       setShiftOffset(undefined);
       if (mouseDownAt.action === 'shift' || e.shiftKey) {
         if (shiftOffset) {
-          changeRange(offsetRange(effectiveDateRange, shiftOffset));
+          changeRange(
+            offsetRange(effectiveDateRange, shiftOffset, n =>
+              granularity.round(new Date(n), TZ_UTC).valueOf(),
+            ),
+          );
         }
       } else {
         if (selection) {
@@ -294,9 +325,12 @@ export const ContinuousChartRender = function ContinuousChartRender(
   if (innerStage.isInvalid()) return;
 
   function startEndToXWidth({ start, end }: { start: number; end: number }) {
-    const xStart = clamp(timeScale(start), 0, innerStage.width);
-    const xEnd = clamp(timeScale(end), 0, innerStage.width);
+    let xStart = timeScale(start);
+    let xEnd = timeScale(end);
+    if (xEnd < 0 || innerStage.width < xStart) return;
 
+    xStart = clamp(xStart, 0, innerStage.width);
+    xEnd = clamp(xEnd, 0, innerStage.width);
     return {
       x: xStart,
       width: Math.max(xEnd - xStart - 1, 1),
@@ -314,8 +348,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
   }
 
   function barToRect(barUnit: StackedBarUnit) {
+    const xWidth = startEndToXWidth(barUnit);
+    if (!xWidth) return;
     return {
-      ...startEndToXWidth(barUnit),
+      ...xWidth,
       ...barToYHeight(barUnit),
     };
   }
@@ -333,7 +369,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       if (granularity.shift(new Date(start), TZ_UTC).valueOf() === end) {
         title = formatStartDuration(new Date(start), granularity);
       } else {
-        title = `${prettyFormatIsoDate(new Date(start))} → ${prettyFormatIsoDate(new Date(end))}`;
+        title = formatStartEnd(new Date(start), new Date(end));
       }
 
       const selectedBars = stackedRows.filter(row => start <= row.start && row.start < end);
@@ -372,8 +408,6 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
-  console.log('chart render');
-
   const nowX = timeScale(now);
   return (
     <div className="continuous-chart-render">
@@ -399,30 +433,6 @@ export const ContinuousChartRender = function ContinuousChartRender(
               )
             }
           />
-          <g
-            className="axis-x"
-            transform={`translate(0,${innerStage.height})`}
-            ref={(node: any) => select(node).call(axisBottom(timeScale))}
-          />
-          <rect
-            className={classNames('time-shift-indicator', {
-              shifting: typeof shiftOffset === 'number',
-            })}
-            x={0}
-            y={innerStage.height}
-            width={innerStage.width}
-            height={CHART_MARGIN.bottom}
-          />
-          <g
-            className="axis-y"
-            ref={(node: any) =>
-              select(node).call(
-                axisLeft(statScale)
-                  .ticks(3)
-                  .tickFormat(e => formatNumber(e.valueOf())),
-              )
-            }
-          />
           <g className="bar-group">
             {selection && (
               <rect
@@ -435,18 +445,21 @@ export const ContinuousChartRender = function ContinuousChartRender(
             {0 < nowX && nowX < innerStage.width && (
               <line className="now-line" x1={nowX} x2={nowX} y1={0} y2={innerStage.height + 8} />
             )}
-            {stackedRows.map((stackedRow, i) => {
+            {filterMap(stackedRows, stackedRow => {
+              const r = barToRect(stackedRow);
+              if (!r) return;
               return (
                 <rect
-                  key={i}
+                  key={`${stackedRow.start}/${stackedRow.end}/${stackedRow.stack}`}
                   className="bar-unit"
-                  {...barToRect(stackedRow)}
-                  style={{
-                    fill:
-                      typeof stackedRow.stack !== 'undefined'
-                        ? stackScale(stackedRow.stack)
-                        : undefined,
-                  }}
+                  {...r}
+                  style={
+                    typeof stackedRow.stack !== 'undefined'
+                      ? {
+                          fill: stackScale(stackedRow.stack),
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
@@ -470,6 +483,30 @@ export const ContinuousChartRender = function ContinuousChartRender(
               />
             )}
           </g>
+          <g
+            className="axis-x"
+            transform={`translate(0,${innerStage.height + 1})`}
+            ref={(node: any) => select(node).call(axisBottom(timeScale))}
+          />
+          <rect
+            className={classNames('time-shift-indicator', {
+              shifting: typeof shiftOffset === 'number',
+            })}
+            x={0}
+            y={innerStage.height}
+            width={innerStage.width}
+            height={CHART_MARGIN.bottom}
+          />
+          <g
+            className="axis-y"
+            ref={(node: any) =>
+              select(node).call(
+                axisLeft(statScale)
+                  .ticks(3)
+                  .tickFormat(e => formatNumber(e.valueOf())),
+              )
+            }
+          />
         </g>
       </svg>
       {!rows.length && (
