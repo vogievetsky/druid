@@ -35,7 +35,7 @@ import { ContinuousChartRender } from './continuous-chart-render';
 const TIME_NAME = 't';
 const MEASURE_NAME = 'm';
 const STACK_NAME = 's';
-const OTHERS_VALUE = 'Others';
+const OTHERS_VALUE = 'Other';
 const MIN_SLICE_WIDTH = 4;
 
 function getRangeInExpression(
@@ -208,7 +208,6 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
     });
 
     const sourceData = sourceDataState.getSomeData();
-    console.log(sourceData?.sourceData);
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="time-chart-module module">

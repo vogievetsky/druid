@@ -445,7 +445,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
             ? month
             : day;
         const start = shifter.floor(time, TZ_UTC);
-        const end = shifter.ceil(time, TZ_UTC);
+        const end = shifter.shift(start, TZ_UTC, 1);
 
         let intervalBars: IntervalBar[] = [];
         if (y <= innerStage.height) {

@@ -105,7 +105,7 @@ function formatStartDuration(start: Date, duration: Duration): string {
       break;
   }
 
-  return `${start.toISOString().slice(0, sliceLength)}/${duration}`;
+  return `${start.toISOString().slice(0, sliceLength).replace('T', ' ')}/${duration}`;
 }
 
 export const ContinuousChartRender = function ContinuousChartRender(
@@ -221,15 +221,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
         }
       }
     } else if (!selection?.done) {
-      if (
-        0 <= x &&
-        x <= innerStage.width &&
-        0 <= y &&
-        y <= innerStage.height + CHART_MARGIN.bottom
-      ) {
+      if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
         const time = baseTimeScale.invert(x).valueOf();
         const start = granularity.floor(new Date(time), TZ_UTC);
-        const end = granularity.ceil(new Date(time), TZ_UTC);
+        const end = granularity.shift(start, TZ_UTC, 1);
 
         const measure = statScale.invert(y);
         const hoverBar = stackedRows.find(
@@ -273,7 +268,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         }
       }
     } else if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
-      console.log('woop');
+      console.log('mouse up in range');
     }
   });
 
@@ -343,8 +338,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
       title,
       text: (
         <>
-          {hoverBar?.stack}
-          {info}
+          {hoverBar?.stack && <div>{hoverBar?.stack}</div>}
+          <div>{info}</div>
           {selection.done && (
             <div className="button-bar">
               <Button
