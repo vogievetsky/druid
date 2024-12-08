@@ -278,12 +278,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
   if (innerStage.isInvalid()) return;
 
   function startEndToXWidth({ start, end }: { start: number; end: number }) {
-    let xStart = timeScale(start);
-    let xEnd = timeScale(end);
+    const xStart = timeScale(start);
+    const xEnd = timeScale(end);
     if (xEnd < 0 || innerStage.width < xStart) return;
 
-    xStart = clamp(xStart, 0, innerStage.width);
-    xEnd = clamp(xEnd, 0, innerStage.width);
     return {
       x: xStart,
       width: Math.max(xEnd - xStart - 1, 1),
@@ -366,13 +364,17 @@ export const ContinuousChartRender = function ContinuousChartRender(
     <div className="continuous-chart-render">
       <svg
         ref={svgRef}
-        width={stage.width}
-        height={stage.height}
-        viewBox={`0 0 ${stage.width} ${stage.height}`}
+        {...stage.toWidthHeight()}
+        viewBox={stage.toViewBox()}
         preserveAspectRatio="xMinYMin meet"
         onMouseDown={handleMouseDown}
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
+          <defs>
+            <clipPath id="chart-clip-area">
+              <rect {...innerStage.toWidthHeight()} />
+            </clipPath>
+          </defs>
           <g
             className="h-gridline"
             transform="translate(0,0)"
@@ -386,7 +388,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
               )
             }
           />
-          <g className="bar-group">
+          <g clipPath="url(#chart-clip-area)">
             {selection && (
               <rect
                 className={classNames('selection', { finalized: selection.finalized })}

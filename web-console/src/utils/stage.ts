@@ -46,4 +46,15 @@ export class Stage {
   public isInvalid(): boolean {
     return this.width <= 0 || this.height <= 0;
   }
+
+  public toWidthHeight() {
+    return {
+      width: this.width,
+      height: this.height,
+    };
+  }
+
+  public toViewBox(): string {
+    return `0 0 ${this.width} ${this.height}`;
+  }
 }
