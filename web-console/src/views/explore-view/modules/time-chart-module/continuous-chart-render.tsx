@@ -30,9 +30,10 @@ import { useMemo, useRef, useState } from 'react';
 import type { PortalBubbleOpenOn } from '../../../../components';
 import { PortalBubble } from '../../../../components';
 import { useClock, useGlobalEventListener } from '../../../../hooks';
-import type { Duration, Margin, Stage } from '../../../../utils';
+import type { Margin, Stage } from '../../../../utils';
 import {
   clamp,
+  Duration,
   filterMap,
   formatIsoDateRange,
   formatNumber,
@@ -63,6 +64,13 @@ export interface StackedBarUnit extends BarUnit {
 }
 
 // ---------------------------------------
+
+const DAY_DURATION = new Duration('P1D');
+
+function getTodayRange(timezone: string): Range {
+  const [start, end] = DAY_DURATION.range(new Date(), timezone);
+  return [start.valueOf(), end.valueOf()];
+}
 
 function offsetRange(dateRange: Range, offset: number, roundEnd?: (n: number) => number): Range {
   const d = dateRange[1] - dateRange[0];
@@ -147,7 +155,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
 
   const innerStage = stage.applyMargin(CHART_MARGIN);
 
-  const effectiveDateRange = domainRange || [rows[rows.length - 1].start, rows[0].end];
+  const effectiveDateRange =
+    domainRange ||
+    (rows.length ? [rows[rows.length - 1].start, rows[0].end] : getTodayRange(TZ_UTC));
 
   const baseTimeScale = scaleUtc()
     .domain(effectiveDateRange)

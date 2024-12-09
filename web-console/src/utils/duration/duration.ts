@@ -307,6 +307,11 @@ export class Duration {
     return distanceToFloor < distanceToCeil ? floorDate : ceilDate;
   }
 
+  public range(date: Date, timezone: string): [Date, Date] {
+    const start = this.floor(date, timezone);
+    return [start, this.shift(start, timezone, 1)];
+  }
+
   /**
    * Materializes all the values of this duration form start to end
    * @param start The date to start on
