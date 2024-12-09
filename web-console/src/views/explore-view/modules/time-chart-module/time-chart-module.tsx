@@ -29,7 +29,7 @@ import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { getAutoGranularity, updateFilterClause } from '../../utils';
 
-import type { BarUnit, Range } from './continuous-chart-render';
+import type { ContinuousChartRenderProps, Range, RangeDatum } from './continuous-chart-render';
 import { ContinuousChartRender } from './continuous-chart-render';
 
 const TIME_NAME = 't';
@@ -60,6 +60,7 @@ interface TimeChartParameterValues {
   numberToStack: number;
   showOthers: boolean;
   measure: ExpressionMeta;
+  markType: ContinuousChartRenderProps['markType'];
 }
 
 ModuleRepository.registerModule<TimeChartParameterValues>({
@@ -109,6 +110,15 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       defaultValue: ({ querySource }) => querySource?.getFirstAggregateMeasure(),
       required: true,
     },
+    markType: {
+      type: 'option',
+      options: ['line', 'bar'],
+      defaultValue: 'line',
+      optionLabels: {
+        line: 'Line',
+        bar: 'Bar',
+      },
+    },
   },
   component: function TimeChartModule(props) {
     const { querySource, where, setWhere, parameterValues, stage, runSqlQuery } = props;
@@ -123,7 +133,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           )
         : parameterValues.timeGranularity;
 
-    const { splitColumn, numberToStack, showOthers, measure } = parameterValues;
+    const { splitColumn, numberToStack, showOthers, measure, markType } = parameterValues;
 
     const dataQuery = useMemo(() => {
       return {
@@ -198,14 +208,14 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           )
         )
           .toObjectArray()
-          .map((b): BarUnit => {
-            return {
+          .map(
+            (b): RangeDatum => ({
               start: b[TIME_NAME].valueOf(),
               end: granularity.shift(b[TIME_NAME], TZ_UTC, 1).valueOf(),
               measure: b[MEASURE_NAME],
               stack: b[STACK_NAME],
-            };
-          });
+            }),
+          );
 
         const effectiveVs = vs && showOthers ? vs.concat(OTHERS_VALUE) : vs;
         return {
@@ -225,6 +235,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           <ContinuousChartRender
             rows={sourceData.sourceData}
             granularity={sourceData.granularity}
+            markType={markType}
             stage={stage}
             domainRange={getRangeInExpression(where, timeColumnName || '__time')}
             changeRange={([start, end]) =>

@@ -24,6 +24,8 @@ import { axisBottom, axisLeft } from 'd3-axis';
 import { scaleLinear, scaleOrdinal, scaleUtc } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { select } from 'd3-selection';
+import type { Area, Line } from 'd3-shape';
+import { area, line } from 'd3-shape';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
@@ -38,6 +40,7 @@ import {
   formatIsoDateRange,
   formatNumber,
   formatStartDuration,
+  groupBy,
   minute,
   TZ_UTC,
 } from '../../../../utils';
@@ -52,15 +55,31 @@ const EXTEND_X_SCALE_DOMAIN_BY = 1;
 
 export type Range = [number, number];
 
-export interface BarUnit {
+export interface RangeDatum {
   start: number;
   end: number;
   measure: number;
   stack: string | undefined;
 }
 
-export interface StackedBarUnit extends BarUnit {
+export interface StackedRangeDatum extends RangeDatum {
   offset: number;
+}
+
+function fullInGaps(ds: readonly StackedRangeDatum[]): (StackedRangeDatum | null)[] {
+  let lastDatum: StackedRangeDatum | undefined = ds[0];
+  const rowsWithMissingValues: (StackedRangeDatum | null)[] = [lastDatum];
+  for (let i = 1; i < ds.length; i++) {
+    const datum = ds[i];
+    if (!lastDatum || lastDatum.start === datum.end) {
+      lastDatum = datum;
+    } else {
+      rowsWithMissingValues.push(null);
+      lastDatum = undefined;
+    }
+    rowsWithMissingValues.push(datum);
+  }
+  return rowsWithMissingValues;
 }
 
 // ---------------------------------------
@@ -83,12 +102,13 @@ interface SelectionRange {
   start: number;
   end: number;
   finalized?: boolean;
-  selectedBar?: StackedBarUnit;
+  selectedBar?: StackedRangeDatum;
 }
 
 export interface ContinuousChartRenderProps {
-  rows: BarUnit[];
+  rows: RangeDatum[];
   granularity: Duration;
+  markType: 'bar' | 'line';
 
   stage: Stage;
   domainRange: Range | undefined;
@@ -101,6 +121,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const {
     rows,
     granularity,
+    markType,
 
     stage,
     domainRange,
@@ -129,7 +150,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const now = useClock(minute.canonicalLength);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const stackedRows: StackedBarUnit[] = useMemo(() => {
+  const stackedRows: StackedRangeDatum[] = useMemo(() => {
     let lastStart: number | undefined;
     let offset: number;
     return rows.map(row => {
@@ -143,7 +164,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     });
   }, [rows]);
 
-  function findStackedBar(time: number, measure: number): StackedBarUnit | undefined {
+  function findStackedBar(time: number, measure: number): StackedRangeDatum | undefined {
     return stackedRows.find(
       r => r.start <= time && time < r.end && r.offset <= measure && measure < r.measure + r.offset,
     );
@@ -285,6 +306,15 @@ export const ContinuousChartRender = function ContinuousChartRender(
     }
   });
 
+  const byStack = useMemo(() => {
+    if (markType === 'bar') return [];
+    return groupBy(
+      stackedRows,
+      d => String(d.stack),
+      rowsInStack => fullInGaps(rowsInStack),
+    );
+  }, [markType, stackedRows]);
+
   if (innerStage.isInvalid()) return;
 
   function startEndToXWidth({ start, end }: { start: number; end: number }) {
@@ -298,7 +328,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
-  function barToYHeight({ measure, offset }: StackedBarUnit) {
+  function barToYHeight({ measure, offset }: StackedRangeDatum) {
     const y0 = statScale(offset);
     const y = statScale(measure + offset);
 
@@ -308,7 +338,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
-  function barToRect(barUnit: StackedBarUnit) {
+  function barToRect(barUnit: StackedRangeDatum) {
     const xWidth = startEndToXWidth(barUnit);
     if (!xWidth) return;
     return {
@@ -316,6 +346,17 @@ export const ContinuousChartRender = function ContinuousChartRender(
       ...barToYHeight(barUnit),
     };
   }
+
+  const areaFn = area<StackedRangeDatum>()
+    .defined(Boolean)
+    .x(d => timeScale((d.start + d.end) / 2))
+    .y0(d => statScale(d.offset))
+    .y1(d => statScale(d.measure + d.offset)) as Area<StackedRangeDatum | null>;
+
+  const lineFn = line<StackedRangeDatum>()
+    .defined(Boolean)
+    .x(d => timeScale((d.start + d.end) / 2))
+    .y(d => statScale(d.measure + d.offset)) as Line<StackedRangeDatum | null>;
 
   let hoveredOpenOn: PortalBubbleOpenOn | undefined;
   if (selection) {
@@ -410,29 +451,68 @@ export const ContinuousChartRender = function ContinuousChartRender(
             {0 < nowX && nowX < innerStage.width && (
               <line className="now-line" x1={nowX} x2={nowX} y1={0} y2={innerStage.height + 8} />
             )}
-            {filterMap(stackedRows, stackedRow => {
-              const r = barToRect(stackedRow);
-              if (!r) return;
-              return (
-                <rect
-                  key={`${stackedRow.start}/${stackedRow.end}/${stackedRow.stack}`}
-                  className="bar-unit"
-                  {...r}
-                  style={
-                    typeof stackedRow.stack !== 'undefined'
-                      ? {
-                          fill: stackScale(stackedRow.stack),
-                        }
-                      : undefined
-                  }
-                />
-              );
-            })}
+            {markType === 'bar' &&
+              filterMap(stackedRows, stackedRow => {
+                const r = barToRect(stackedRow);
+                if (!r) return;
+                return (
+                  <rect
+                    key={`${stackedRow.start}/${stackedRow.end}/${stackedRow.stack}`}
+                    className="mark-bar"
+                    {...r}
+                    style={
+                      typeof stackedRow.stack !== 'undefined'
+                        ? {
+                            fill: stackScale(stackedRow.stack),
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
             {selection?.selectedBar && (
               <rect
                 className={classNames('selected-bar', { finalized: selection.finalized })}
                 {...barToRect(selection.selectedBar)}
               />
+            )}
+            {markType === 'line' && (
+              <>
+                {byStack.map(ds => {
+                  const stack = ds[0]!.stack;
+                  return (
+                    <path
+                      key={String(stack)}
+                      className="mark-area"
+                      d={areaFn(ds)!}
+                      style={
+                        typeof stack !== 'undefined'
+                          ? {
+                              fill: stackScale(stack),
+                            }
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+                {byStack.map(ds => {
+                  const stack = ds[0]!.stack;
+                  return (
+                    <path
+                      key={String(stack)}
+                      className="mark-line"
+                      d={lineFn(ds)!}
+                      style={
+                        typeof stack !== 'undefined'
+                          ? {
+                              stroke: stackScale(stack),
+                            }
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+              </>
             )}
             {!!shiftOffset && (
               <rect

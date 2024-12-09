@@ -137,7 +137,7 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
     );
   }
 
-  const parameterValuesWithDefaults = useMemo(() => {
+  const parameterValuesWithDefaults: ParameterValues = useMemo(() => {
     if (!module) return {};
     return fillInDefaults(parameterValues, module.parameters, querySource);
   }, [parameterValues, module, querySource]);

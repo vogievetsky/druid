@@ -30,7 +30,7 @@
       user-select: none;
     }
 
-    .bar-unit {
+    .mark-bar {
       fill: #497ee6;
     }
 
@@ -85,6 +85,17 @@
     .now-line {
       stroke: $orange4;
       stroke-dasharray: 2, 2;
+      opacity: 0.7;
+    }
+
+    .mark-line {
+      stroke-width: 1.5px;
+      stroke: #497ee6;
+      fill: none;
+    }
+
+    .mark-area {
+      fill: #497ee6;
       opacity: 0.7;
     }
   }

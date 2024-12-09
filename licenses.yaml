@@ -5593,6 +5593,16 @@ license_file_path: licenses/bin/d3-interpolate.ISC
 
 ---
 
+name: "d3-path"
+license_category: binary
+module: web-console
+license_name: ISC License
+copyright: Mike Bostock
+version: 3.1.0
+license_file_path: licenses/bin/d3-path.ISC
+
+---
+
 name: "d3-scale-chromatic"
 license_category: binary
 module: web-console
@@ -5620,6 +5630,16 @@ license_name: ISC License
 copyright: Mike Bostock
 version: 3.0.0
 license_file_path: licenses/bin/d3-selection.ISC
+
+---
+
+name: "d3-shape"
+license_category: binary
+module: web-console
+license_name: ISC License
+copyright: Mike Bostock
+version: 3.2.0
+license_file_path: licenses/bin/d3-shape.ISC
 
 ---
 
