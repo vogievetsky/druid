@@ -68,18 +68,18 @@ export interface StackedRangeDatum extends RangeDatum {
 
 function fullInGaps(ds: readonly StackedRangeDatum[]): (StackedRangeDatum | null)[] {
   let lastDatum: StackedRangeDatum | undefined = ds[0];
-  const rowsWithMissingValues: (StackedRangeDatum | null)[] = [lastDatum];
+  const dsWithGapMarkers: (StackedRangeDatum | null)[] = [lastDatum];
   for (let i = 1; i < ds.length; i++) {
     const datum = ds[i];
     if (!lastDatum || lastDatum.start === datum.end) {
       lastDatum = datum;
     } else {
-      rowsWithMissingValues.push(null);
+      dsWithGapMarkers.push(null);
       lastDatum = undefined;
     }
-    rowsWithMissingValues.push(datum);
+    dsWithGapMarkers.push(datum);
   }
-  return rowsWithMissingValues;
+  return dsWithGapMarkers;
 }
 
 // ---------------------------------------
@@ -106,11 +106,26 @@ interface SelectionRange {
 }
 
 export interface ContinuousChartRenderProps {
-  rows: RangeDatum[];
-  granularity: Duration;
-  markType: 'bar' | 'line';
+  /**
+   * The data to be rendered it has to be ordered in reverse chronological order (latest first)
+   * If stacking is used then the stack bars should be ordered bottom to top.
+   */
+  data: RangeDatum[];
 
+  /**
+   * The granularity that was used for bucketing.
+   */
+  granularity: Duration;
+  markType: 'bar' | 'area';
+
+  /**
+   * The width x height to render
+   */
   stage: Stage;
+
+  /**
+   * The optional range of the x-axis to show, if not set it defaults to the extent of the data
+   */
   domainRange: Range | undefined;
   changeRange(range: Range): void;
 }
@@ -119,7 +134,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
   props: ContinuousChartRenderProps,
 ) {
   const {
-    rows,
+    data,
     granularity,
     markType,
 
@@ -150,22 +165,22 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const now = useClock(minute.canonicalLength);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const stackedRows: StackedRangeDatum[] = useMemo(() => {
+  const stackedData: StackedRangeDatum[] = useMemo(() => {
     let lastStart: number | undefined;
     let offset: number;
-    return rows.map(row => {
-      if (lastStart !== row.start) {
+    return data.map(d => {
+      if (lastStart !== d.start) {
         offset = 0;
-        lastStart = row.start;
+        lastStart = d.start;
       }
-      const withOffset = { ...row, offset };
-      offset += row.measure;
+      const withOffset = { ...d, offset };
+      offset += d.measure;
       return withOffset;
     });
-  }, [rows]);
+  }, [data]);
 
-  function findStackedBar(time: number, measure: number): StackedRangeDatum | undefined {
-    return stackedRows.find(
+  function findStackedDatum(time: number, measure: number): StackedRangeDatum | undefined {
+    return stackedData.find(
       r => r.start <= time && time < r.end && r.offset <= measure && measure < r.measure + r.offset,
     );
   }
@@ -178,7 +193,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
 
   const effectiveDateRange =
     domainRange ||
-    (rows.length ? [rows[rows.length - 1].start, rows[0].end] : getTodayRange(TZ_UTC));
+    (data.length ? [data[data.length - 1].start, data[0].end] : getTodayRange(TZ_UTC));
 
   const baseTimeScale = scaleUtc()
     .domain(effectiveDateRange)
@@ -187,7 +202,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     ? baseTimeScale.copy().domain(offsetRange(effectiveDateRange, shiftOffset))
     : baseTimeScale;
 
-  const maxMeasure = max(stackedRows, d => d.measure + d.offset);
+  const maxMeasure = max(stackedData, d => d.measure + d.offset);
   const statScale = scaleLinear()
     .rangeRound([innerStage.height, 0])
     .domain([0, (maxMeasure ?? 100) * 1.05]);
@@ -255,7 +270,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         setSelectionIfNeeded({
           start: start.valueOf(),
           end: end.valueOf(),
-          selectedBar: findStackedBar(time, measure),
+          selectedBar: findStackedDatum(time, measure),
         });
       } else {
         setSelection(undefined);
@@ -293,7 +308,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         setSelection({
           ...selection,
           finalized: true,
-          selectedBar: findStackedBar(time, measure),
+          selectedBar: findStackedDatum(time, measure),
         });
       }
     }
@@ -309,11 +324,11 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const byStack = useMemo(() => {
     if (markType === 'bar') return [];
     return groupBy(
-      stackedRows,
+      stackedData,
       d => String(d.stack),
-      rowsInStack => fullInGaps(rowsInStack),
+      dataInStack => fullInGaps(dataInStack),
     );
-  }, [markType, stackedRows]);
+  }, [markType, stackedData]);
 
   if (innerStage.isInvalid()) return;
 
@@ -374,9 +389,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
         title = formatIsoDateRange(new Date(start), new Date(end));
       }
 
-      const selectedBars = stackedRows.filter(row => start <= row.start && row.start < end);
-      if (selectedBars.length) {
-        info = formatNumber(sum(selectedBars, b => b.measure));
+      const selectedData = stackedData.filter(d => start <= d.start && d.start < end);
+      if (selectedData.length) {
+        info = formatNumber(sum(selectedData, b => b.measure));
       } else {
         info = 'No data';
       }
@@ -452,7 +467,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
               <line className="now-line" x1={nowX} x2={nowX} y1={0} y2={innerStage.height + 8} />
             )}
             {markType === 'bar' &&
-              filterMap(stackedRows, stackedRow => {
+              filterMap(stackedData, stackedRow => {
                 const r = barToRect(stackedRow);
                 if (!r) return;
                 return (
@@ -476,7 +491,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                 {...barToRect(selection.selectedBar)}
               />
             )}
-            {markType === 'line' && (
+            {markType === 'area' && (
               <>
                 {byStack.map(ds => {
                   const stack = ds[0]!.stack;
@@ -554,7 +569,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
           />
         </g>
       </svg>
-      {!rows.length && (
+      {!data.length && (
         <div className="empty-placeholder">
           <div className="no-data-text">There is no data in the selected range</div>
         </div>

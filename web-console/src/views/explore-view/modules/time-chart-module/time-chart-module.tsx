@@ -112,10 +112,10 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
     },
     markType: {
       type: 'option',
-      options: ['line', 'bar'],
-      defaultValue: 'line',
+      options: ['area', 'bar'],
+      defaultValue: 'area',
       optionLabels: {
-        line: 'Line',
+        area: 'Area',
         bar: 'Bar',
       },
     },
@@ -233,7 +233,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       <div className="time-chart-module module">
         {sourceData && (
           <ContinuousChartRender
-            rows={sourceData.sourceData}
+            data={sourceData.sourceData}
             granularity={sourceData.granularity}
             markType={markType}
             stage={stage}
