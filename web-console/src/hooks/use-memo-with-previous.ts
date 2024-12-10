@@ -16,13 +16,22 @@
  * limitations under the License.
  */
 
-export * from './use-clock';
-export * from './use-constant';
-export * from './use-global-event-listener';
-export * from './use-hash-and-local-storage-hybrid-state';
-export * from './use-interval';
-export * from './use-last-defined';
-export * from './use-local-storage-state';
-export * from './use-memo-with-previous';
-export * from './use-permanent-callback';
-export * from './use-query-manager';
+import { useRef } from 'react';
+
+import { arraysEqualByElement } from '../utils';
+
+/**
+ * Custom hook similar to `useMemo`, but it provides the previous value as an argument.
+ * @param computeFn - Function to compute the new value. It receives the previous value as an argument.
+ * @param deps - Dependency array to determine when to recompute the value.
+ * @returns The memoized value.
+ */
+export function useMemoWithPrevious<T>(computeFn: (prev: T | undefined) => T, deps: any[]): T {
+  const value = useRef(computeFn(undefined));
+  const prevDependencies = useRef(deps);
+  if (!arraysEqualByElement(deps, prevDependencies.current)) {
+    value.current = computeFn(value.current);
+    prevDependencies.current = deps;
+  }
+  return value.current;
+}

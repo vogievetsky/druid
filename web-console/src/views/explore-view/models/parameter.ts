@@ -54,6 +54,8 @@ export interface ParameterTypes {
   measures: Measure[];
 }
 
+type OptionLabels = { [key: string | number]: string } | ((x: string) => string);
+
 interface TypedExtensions {
   boolean: {};
   string: {};
@@ -63,11 +65,11 @@ interface TypedExtensions {
   };
   option: {
     options: readonly OptionValue[];
-    optionLabels?: { [key: string | number]: string };
+    optionLabels?: OptionLabels;
   };
   options: {
     options: readonly OptionValue[];
-    optionLabels?: { [key: string | number]: string };
+    optionLabels?: OptionLabels;
     allowDuplicates?: boolean;
     nonEmpty?: boolean;
   };
@@ -127,16 +129,19 @@ export function getModuleOptionLabel(
   optionValue: OptionValue,
   parameterDefinition: ParameterDefinition,
 ): string {
-  const { optionLabels = {} } = parameterDefinition as any;
+  const { optionLabels } = parameterDefinition as any;
 
-  return (
-    optionLabels[optionValue] ??
-    (typeof optionValue === 'string'
-      ? optionValue
-      : typeof optionValue !== 'undefined'
-      ? String(optionValue)
-      : 'Malformed option')
-  );
+  if (typeof optionLabels === 'function') {
+    const l = optionLabels(optionValue);
+    if (typeof l !== 'undefined') return l;
+  }
+
+  if (optionLabels && typeof optionLabels === 'object') {
+    const l = optionLabels[optionValue];
+    if (typeof l !== 'undefined') return l;
+  }
+
+  return typeof optionValue !== 'undefined' ? String(optionValue) : 'Malformed option';
 }
 
 export type ParameterValues = Readonly<Record<string, any>>;
@@ -235,6 +240,7 @@ function defaultForType(parameterType: keyof ParameterTypes): any {
 export function effectiveParameterDefault(
   parameter: ParameterDefinition,
   parameterValues: ParameterValues,
+  previousParameterValue: any,
   querySource: QuerySource | undefined,
 ): any {
   if (
@@ -243,10 +249,15 @@ export function effectiveParameterDefault(
   ) {
     return;
   }
-  return (
+  const newDefault =
     evaluateFunctor(parameter.defaultValue, parameterValues, querySource) ??
-    defaultForType(parameter.type)
-  );
+    defaultForType(parameter.type);
+
+  if (previousParameterValue instanceof Measure && previousParameterValue.equals(newDefault)) {
+    return previousParameterValue;
+  }
+
+  return newDefault;
 }
 
 // -----------------------------------------------------

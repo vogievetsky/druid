@@ -25,7 +25,7 @@ import { scaleLinear, scaleOrdinal, scaleUtc } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { select } from 'd3-selection';
 import type { Area, Line } from 'd3-shape';
-import { area, line } from 'd3-shape';
+import { area, curveLinear, curveMonotoneX, curveStep, line } from 'd3-shape';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
@@ -102,7 +102,24 @@ interface SelectionRange {
   start: number;
   end: number;
   finalized?: boolean;
-  selectedBar?: StackedRangeDatum;
+  selectedDatum?: StackedRangeDatum;
+}
+
+export type ContinuousChartMarkType = 'bar' | 'area' | 'line';
+export type ContinuousChartCurveType = 'smooth' | 'linear' | 'step';
+
+function getCurveFactory(curveType: ContinuousChartCurveType | undefined) {
+  switch (curveType) {
+    case 'linear':
+      return curveLinear;
+
+    case 'step':
+      return curveStep;
+
+    case 'smooth':
+    default:
+      return curveMonotoneX;
+  }
 }
 
 export interface ContinuousChartRenderProps {
@@ -116,7 +133,12 @@ export interface ContinuousChartRenderProps {
    * The granularity that was used for bucketing.
    */
   granularity: Duration;
-  markType: 'bar' | 'area';
+  markType: ContinuousChartMarkType;
+
+  /**
+   * Defines how to render the curve in case 'area' or 'line' is selected as the mark type
+   */
+  curveType?: ContinuousChartCurveType;
 
   /**
    * The width x height to render
@@ -137,6 +159,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     data,
     granularity,
     markType,
+    curveType,
 
     stage,
     domainRange,
@@ -153,7 +176,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       selection.start === newSelection.start &&
       selection.end === newSelection.end &&
       selection.finalized === newSelection.finalized &&
-      selection.selectedBar === newSelection.selectedBar
+      selection.selectedDatum === newSelection.selectedDatum
     ) {
       return;
     }
@@ -166,18 +189,23 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const stackedData: StackedRangeDatum[] = useMemo(() => {
-    let lastStart: number | undefined;
-    let offset: number;
-    return data.map(d => {
-      if (lastStart !== d.start) {
-        offset = 0;
-        lastStart = d.start;
-      }
-      const withOffset = { ...d, offset };
-      offset += d.measure;
-      return withOffset;
-    });
-  }, [data]);
+    if (markType === 'line') {
+      // No need to stack
+      return data.map(d => ({ ...d, offset: 0 }));
+    } else {
+      let lastStart: number | undefined;
+      let offset: number;
+      return data.map(d => {
+        if (lastStart !== d.start) {
+          offset = 0;
+          lastStart = d.start;
+        }
+        const withOffset = { ...d, offset };
+        offset += d.measure;
+        return withOffset;
+      });
+    }
+  }, [data, markType]);
 
   function findStackedDatum(time: number, measure: number): StackedRangeDatum | undefined {
     return stackedData.find(
@@ -203,7 +231,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     : baseTimeScale;
 
   const maxMeasure = max(stackedData, d => d.measure + d.offset);
-  const statScale = scaleLinear()
+  const measureScale = scaleLinear()
     .rangeRound([innerStage.height, 0])
     .domain([0, (maxMeasure ?? 100) * 1.05]);
 
@@ -262,7 +290,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     } else if (!selection?.finalized) {
       if (0 <= x && x <= innerStage.width && 0 <= y && y <= innerStage.height) {
         const time = baseTimeScale.invert(x).valueOf();
-        const measure = statScale.invert(y);
+        const measure = measureScale.invert(y);
 
         const start = granularity.floor(new Date(time), TZ_UTC);
         const end = granularity.shift(start, TZ_UTC, 1);
@@ -270,7 +298,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         setSelectionIfNeeded({
           start: start.valueOf(),
           end: end.valueOf(),
-          selectedBar: findStackedDatum(time, measure),
+          selectedDatum: findStackedDatum(time, measure),
         });
       } else {
         setSelection(undefined);
@@ -303,12 +331,12 @@ export const ContinuousChartRender = function ContinuousChartRender(
     } else {
       if (selection) {
         const time = baseTimeScale.invert(x).valueOf();
-        const measure = statScale.invert(y);
+        const measure = measureScale.invert(y);
 
         setSelection({
           ...selection,
           finalized: true,
-          selectedBar: findStackedDatum(time, measure),
+          selectedDatum: findStackedDatum(time, measure),
         });
       }
     }
@@ -343,9 +371,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
-  function barToYHeight({ measure, offset }: StackedRangeDatum) {
-    const y0 = statScale(offset);
-    const y = statScale(measure + offset);
+  function datumToYHeight({ measure, offset }: StackedRangeDatum) {
+    const y0 = measureScale(offset);
+    const y = measureScale(measure + offset);
 
     return {
       y: y,
@@ -353,35 +381,49 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
-  function barToRect(barUnit: StackedRangeDatum) {
-    const xWidth = startEndToXWidth(barUnit);
+  function datumToRect(d: StackedRangeDatum) {
+    const xWidth = startEndToXWidth(d);
     if (!xWidth) return;
     return {
       ...xWidth,
-      ...barToYHeight(barUnit),
+      ...datumToYHeight(d),
     };
   }
 
+  function datumToCxCy(d: StackedRangeDatum) {
+    const cx = timeScale((d.start + d.end) / 2);
+    if (cx < 0 || innerStage.width < cx) return;
+
+    return {
+      cx,
+      cy: measureScale(d.measure + d.offset),
+    };
+  }
+
+  const curve = getCurveFactory(curveType);
+
   const areaFn = area<StackedRangeDatum>()
+    .curve(curve)
     .defined(Boolean)
     .x(d => timeScale((d.start + d.end) / 2))
-    .y0(d => statScale(d.offset))
-    .y1(d => statScale(d.measure + d.offset)) as Area<StackedRangeDatum | null>;
+    .y0(d => measureScale(d.offset))
+    .y1(d => measureScale(d.measure + d.offset)) as Area<StackedRangeDatum | null>;
 
   const lineFn = line<StackedRangeDatum>()
+    .curve(curve)
     .defined(Boolean)
     .x(d => timeScale((d.start + d.end) / 2))
-    .y(d => statScale(d.measure + d.offset)) as Line<StackedRangeDatum | null>;
+    .y(d => measureScale(d.measure + d.offset)) as Line<StackedRangeDatum | null>;
 
   let hoveredOpenOn: PortalBubbleOpenOn | undefined;
   if (selection) {
-    const { start, end, selectedBar } = selection;
+    const { start, end, selectedDatum } = selection;
 
     let title: string;
     let info: string;
-    if (selectedBar) {
-      title = formatStartDuration(new Date(selectedBar.start), granularity);
-      info = formatNumber(selectedBar.measure);
+    if (selectedDatum) {
+      title = formatStartDuration(new Date(selectedDatum.start), granularity);
+      info = formatNumber(selectedDatum.measure);
     } else {
       if (granularity.shift(new Date(start), TZ_UTC).valueOf() === end) {
         title = formatStartDuration(new Date(start), granularity);
@@ -403,7 +445,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       title,
       text: (
         <>
-          {selectedBar?.stack && <div>{selectedBar?.stack}</div>}
+          {selectedDatum?.stack && <div>{selectedDatum?.stack}</div>}
           <div>{info}</div>
           {selection.finalized && (
             <div className="button-bar">
@@ -446,8 +488,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
             transform="translate(0,0)"
             ref={(node: any) =>
               select(node).call(
-                axisLeft(statScale)
-                  .tickValues(statScale.ticks(3).filter(v => v !== 0))
+                axisLeft(measureScale)
+                  .tickValues(measureScale.ticks(3).filter(v => v !== 0))
                   .tickSize(-innerStage.width)
                   .tickFormat(() => '')
                   .tickSizeOuter(0),
@@ -468,7 +510,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
             )}
             {markType === 'bar' &&
               filterMap(stackedData, stackedRow => {
-                const r = barToRect(stackedRow);
+                const r = datumToRect(stackedRow);
                 if (!r) return;
                 return (
                   <rect
@@ -485,49 +527,61 @@ export const ContinuousChartRender = function ContinuousChartRender(
                   />
                 );
               })}
-            {selection?.selectedBar && (
+            {markType === 'bar' && selection?.selectedDatum && (
               <rect
                 className={classNames('selected-bar', { finalized: selection.finalized })}
-                {...barToRect(selection.selectedBar)}
+                {...datumToRect(selection.selectedDatum)}
               />
             )}
-            {markType === 'area' && (
-              <>
-                {byStack.map(ds => {
-                  const stack = ds[0]!.stack;
-                  return (
-                    <path
-                      key={String(stack)}
-                      className="mark-area"
-                      d={areaFn(ds)!}
-                      style={
-                        typeof stack !== 'undefined'
-                          ? {
-                              fill: stackScale(stack),
-                            }
-                          : undefined
+            {markType === 'area' &&
+              byStack.map(ds => {
+                const stack = ds[0]!.stack;
+                return (
+                  <path
+                    key={String(stack)}
+                    className="mark-area"
+                    d={areaFn(ds)!}
+                    style={
+                      typeof stack !== 'undefined'
+                        ? {
+                            fill: stackScale(stack),
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            {(markType === 'area' || markType === 'line') &&
+              byStack.map(ds => {
+                const stack = ds[0]!.stack;
+                return (
+                  <path
+                    key={String(stack)}
+                    className="mark-line"
+                    d={lineFn(ds)!}
+                    style={
+                      typeof stack !== 'undefined'
+                        ? {
+                            stroke: stackScale(stack),
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            {(markType === 'area' || markType === 'line') && selection?.selectedDatum && (
+              <circle
+                className={classNames('selected-point', { finalized: selection.finalized })}
+                {...datumToCxCy(selection.selectedDatum)}
+                r={3}
+                style={
+                  typeof selection.selectedDatum.stack !== 'undefined'
+                    ? {
+                        fill: stackScale(selection.selectedDatum.stack),
                       }
-                    />
-                  );
-                })}
-                {byStack.map(ds => {
-                  const stack = ds[0]!.stack;
-                  return (
-                    <path
-                      key={String(stack)}
-                      className="mark-line"
-                      d={lineFn(ds)!}
-                      style={
-                        typeof stack !== 'undefined'
-                          ? {
-                              stroke: stackScale(stack),
-                            }
-                          : undefined
-                      }
-                    />
-                  );
-                })}
-              </>
+                    : undefined
+                }
+              />
             )}
             {!!shiftOffset && (
               <rect
@@ -561,7 +615,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
             className="axis-y"
             ref={(node: any) =>
               select(node).call(
-                axisLeft(statScale)
+                axisLeft(measureScale)
                   .ticks(3)
                   .tickFormat(e => formatNumber(e.valueOf())),
               )

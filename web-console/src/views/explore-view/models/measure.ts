@@ -200,7 +200,11 @@ export class Measure extends ExpressionMeta {
   }
 
   public equals(other: Measure | undefined): boolean {
-    return Boolean(other && this.name === other.name && this.expression.equals(other.expression));
+    return (
+      other instanceof Measure &&
+      this.name === other.name &&
+      this.expression.equals(other.expression)
+    );
   }
 
   public equivalent(other: Measure | undefined): boolean {

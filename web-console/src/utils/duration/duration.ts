@@ -190,8 +190,8 @@ export class Duration {
     this.spans = effectiveSpans;
   }
 
-  public toString() {
-    const strArr: string[] = ['P'];
+  public toString(short?: boolean) {
+    const strArr: string[] = short ? [] : ['P'];
     const spans = this.spans;
     if (spans.week) {
       strArr.push(String(spans.week), 'W');
@@ -202,7 +202,7 @@ export class Duration {
         const value = spans[span];
         if (!value) continue;
         if (!addedT && i >= 3) {
-          strArr.push('T');
+          if (!short) strArr.push('T');
           addedT = true;
         }
         strArr.push(String(value), span[0].toUpperCase());

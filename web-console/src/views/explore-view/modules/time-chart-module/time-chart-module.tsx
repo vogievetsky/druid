@@ -23,13 +23,18 @@ import { useMemo } from 'react';
 
 import { Loader } from '../../../../components';
 import { useQueryManager } from '../../../../hooks';
-import { Duration, TZ_UTC } from '../../../../utils';
+import { capitalizeFirst, Duration, TZ_UTC } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { getAutoGranularity, updateFilterClause } from '../../utils';
 
-import type { ContinuousChartRenderProps, Range, RangeDatum } from './continuous-chart-render';
+import type {
+  ContinuousChartCurveType,
+  ContinuousChartMarkType,
+  Range,
+  RangeDatum,
+} from './continuous-chart-render';
 import { ContinuousChartRender } from './continuous-chart-render';
 
 const TIME_NAME = 't';
@@ -60,7 +65,8 @@ interface TimeChartParameterValues {
   numberToStack: number;
   showOthers: boolean;
   measure: ExpressionMeta;
-  markType: ContinuousChartRenderProps['markType'];
+  markType: ContinuousChartMarkType;
+  curveType: ContinuousChartCurveType;
 }
 
 ModuleRepository.registerModule<TimeChartParameterValues>({
@@ -112,12 +118,16 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
     },
     markType: {
       type: 'option',
-      options: ['area', 'bar'],
+      options: ['area', 'bar', 'line'],
       defaultValue: 'area',
-      optionLabels: {
-        area: 'Area',
-        bar: 'Bar',
-      },
+      optionLabels: capitalizeFirst,
+    },
+    curveType: {
+      type: 'option',
+      options: ['smooth', 'linear', 'step'],
+      defaultValue: 'smooth',
+      optionLabels: capitalizeFirst,
+      defined: ({ parameterValues }) => parameterValues.markType !== 'bar',
     },
   },
   component: function TimeChartModule(props) {
@@ -133,7 +143,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           )
         : parameterValues.timeGranularity;
 
-    const { splitColumn, numberToStack, showOthers, measure, markType } = parameterValues;
+    const { splitColumn, numberToStack, showOthers, measure } = parameterValues;
 
     const dataQuery = useMemo(() => {
       return {
@@ -235,7 +245,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           <ContinuousChartRender
             data={sourceData.sourceData}
             granularity={sourceData.granularity}
-            markType={markType}
+            markType={parameterValues.markType}
+            curveType={parameterValues.curveType}
             stage={stage}
             domainRange={getRangeInExpression(where, timeColumnName || '__time')}
             changeRange={([start, end]) =>

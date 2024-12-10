@@ -29,8 +29,9 @@ import {
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
 import type { Column, QueryResult, SqlExpression, SqlQuery } from 'druid-query-toolkit';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 
+import { useMemoWithPrevious } from '../../../../hooks';
 import {
   isEmpty,
   localStorageGetJson,
@@ -62,6 +63,7 @@ function getStickyParameterValuesForModule(moduleId: string): ParameterValues {
 
 function fillInDefaults(
   parameterValues: ParameterValues,
+  previousParameterValues: ParameterValues | undefined,
   parameters: Record<string, ParameterDefinition>,
   querySource: QuerySource,
 ): Record<string, any> {
@@ -71,6 +73,7 @@ function fillInDefaults(
     parameterValuesWithDefaults[propName] = effectiveParameterDefault(
       propDefinition,
       parameterValues,
+      previousParameterValues?.[propName],
       querySource,
     );
   });
@@ -137,10 +140,18 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
     );
   }
 
-  const parameterValuesWithDefaults: ParameterValues = useMemo(() => {
-    if (!module) return {};
-    return fillInDefaults(parameterValues, module.parameters, querySource);
-  }, [parameterValues, module, querySource]);
+  const parameterValuesWithDefaults: ParameterValues = useMemoWithPrevious(
+    previousParameterValuesWithDefaults => {
+      if (!module) return {};
+      return fillInDefaults(
+        parameterValues,
+        previousParameterValuesWithDefaults,
+        module.parameters,
+        querySource,
+      );
+    },
+    [parameterValues, module, querySource],
+  );
 
   let content: React.ReactNode;
   if (module) {
@@ -226,7 +237,7 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
             querySource={querySource}
             onUpdateParameterValues={updateParameterValues}
             parameters={module.parameters}
-            parameterValues={parameterValues}
+            parameterValues={parameterValuesWithDefaults}
             compact
             onAddToSourceQueryAsColumn={onAddToSourceQueryAsColumn}
             onAddToSourceQueryAsMeasure={onAddToSourceQueryAsMeasure}

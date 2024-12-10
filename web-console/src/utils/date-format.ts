@@ -48,7 +48,9 @@ export function formatStartDuration(start: Date, duration: Duration): string {
       break;
   }
 
-  return `${start.toISOString().slice(0, sliceLength).replace('T', ' ')}/${duration}`;
+  return `${start.toISOString().slice(0, sliceLength).replace('T', ' ')}/${duration.toString(
+    true,
+  )}`;
 }
 
 export function formatIsoDateRange(start: Date, end: Date): string {
