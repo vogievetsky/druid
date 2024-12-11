@@ -23,11 +23,11 @@ import {
   setCursorPositionInContentEditable,
 } from './cursor-utils';
 import {
-  parseTokens,
-  removeTokenByIndex,
+  parseToSearchTokens,
+  removeSearchTokenByIndex,
+  searchTokensToString,
+  searchTokenToHtml,
   tokensToExpression,
-  tokensToString,
-  tokenToHtml,
 } from './token-utils';
 
 import './typr.scss';
@@ -36,7 +36,7 @@ export const Typr = function Typr() {
   const divRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState('hello world x=moon');
 
-  console.log(tokensToExpression(parseTokens(text)).toString());
+  console.log(tokensToExpression(parseToSearchTokens(text)).toString());
 
   const handleInput = () => {
     if (divRef.current) {
@@ -49,9 +49,9 @@ export const Typr = function Typr() {
     const cont = divRef.current;
     if (!cont) return;
 
-    const tokens = parseTokens(text);
+    const tokens = parseToSearchTokens(text);
     const position = getCursorPositionInContentEditable(cont);
-    cont.innerHTML = tokens.map(tokenToHtml).join('') + ' ';
+    cont.innerHTML = tokens.map(searchTokenToHtml).join('') + ' ';
     setCursorPositionInContentEditable(cont, position);
   }, [text]);
 
@@ -68,8 +68,8 @@ export const Typr = function Typr() {
           if (typeof index === 'string') {
             const i = Number(index);
             console.log('remove index', i);
-            const tokens = parseTokens(text);
-            setText(tokensToString(removeTokenByIndex(tokens, i)));
+            const tokens = parseToSearchTokens(text);
+            setText(searchTokensToString(removeSearchTokenByIndex(tokens, i)));
             return;
           }
         }

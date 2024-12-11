@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-import type { Token } from './token-utils';
-import { parseTokens, removeTokenByIndex } from './token-utils';
+import type { SearchToken } from './token-utils';
+import { parseToSearchTokens, removeSearchTokenByIndex } from './token-utils';
 
 describe('token-utils', () => {
   it('parseTokens', () => {
-    expect(parseTokens('hello world   x=moon')).toEqual([
+    expect(parseToSearchTokens('hello world   x=moon')).toEqual([
       {
         term: 'hello',
         type: 'term',
@@ -51,7 +51,7 @@ describe('token-utils', () => {
   });
 
   describe('removeTokenByIndex', () => {
-    const tokens: Token[] = [
+    const tokens: SearchToken[] = [
       {
         term: 'hello',
         type: 'term',
@@ -74,7 +74,7 @@ describe('token-utils', () => {
     ];
 
     it('removes from start', () => {
-      expect(removeTokenByIndex(tokens, 0)).toEqual([
+      expect(removeSearchTokenByIndex(tokens, 0)).toEqual([
         {
           term: 'world',
           type: 'term',

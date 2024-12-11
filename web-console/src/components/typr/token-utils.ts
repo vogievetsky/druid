@@ -20,77 +20,106 @@ import { C, F, L, SqlExpression } from 'druid-query-toolkit';
 
 import { filterMap, oneOf } from '../../utils';
 
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+// ----------------------------------------------------------------------
+
+export type BaseToken =
+  | { type: 'space'; value: string }
+  | { type: 'invalid'; value: string }
+  | { type: 'term'; term: string; quoted: boolean; missingEndQuote?: boolean }
+  | { type: 'operator'; op: string }
+  | { type: 'logic'; logic: 'AND' | 'OR' | 'NOT' }
+  | { type: 'paren'; paren: '(' | ')' };
+
+const OPERATORS = ['=', '!=', '>=', '<=', '>', '<'];
+const LOGICS = ['AND', 'OR', 'NOT'];
+
+export function parseToBaseTokens(input: string): BaseToken[] {
+  const n = input.length;
+  const tokens: BaseToken[] = [];
+  let i = 0;
+
+  while (i < n) {
+    // Handle whitespace
+    if (input[i] === ' ') {
+      const start = i;
+      while (i < n && input[i] === ' ') {
+        i++;
+      }
+      tokens.push({ type: 'space', value: input.slice(start, i) });
+      continue;
+    }
+
+    // Handle quoted strings
+    if (input[i] === '"') {
+      // Read to the next " or EOF skipping \"
+      let end = i + 1;
+      let prevChar = '"';
+      while (end < n && prevChar !== '\\' && (prevChar = input[end]) !== '"') end++;
+
+      // We reached EOF, make a special token to mark a missing quote
+      if (end === n) {
+        tokens.push({
+          type: 'term',
+          term: input.slice(i + 1),
+          quoted: true,
+          missingEndQuote: true,
+        });
+        return tokens;
+      }
+
+      tokens.push({ type: 'term', term: input.slice(i + 1, end), quoted: true });
+      continue;
+    }
+
+    // Handle operators
+    const matchedOperator = OPERATORS.find(op => input.startsWith(op, i));
+    if (matchedOperator) {
+      tokens.push({ type: 'operator', op: matchedOperator });
+      i += matchedOperator.length;
+      continue;
+    }
+
+    // Handle logic
+    const matchedLogic = LOGICS.find(logic => input.startsWith(logic, i));
+    if (matchedLogic) {
+      tokens.push({ type: 'logic', logic: matchedLogic as any });
+      i += matchedLogic.length;
+      continue;
+    }
+
+    // Handle keywords
+    const start = i;
+    while (
+      i < n &&
+      input[i] !== ' ' &&
+      input[i] !== '"' &&
+      !OPERATORS.some(op => input.startsWith(op, i))
+    ) {
+      i++;
+    }
+    tokens.push({ type: 'term', term: input.slice(start, i), quoted: false });
+  }
+
+  return tokens;
 }
 
 // ----------------------------------------------------------------------
 
-export type Token =
-  | { type: 'space' }
+export type SearchToken =
+  | { type: 'space'; value: string }
   | { type: 'term'; term: string }
   | { type: 'field'; key: string; value: string }
-  | { type: 'op'; op: 'AND' | 'OR' | 'NOT' };
+  | { type: 'logic'; logic: 'AND' | 'OR' | 'NOT' };
 
-export function tokenToString(token: Token): string {
-  switch (token.type) {
-    case 'space':
-      return ' ';
-
-    case 'term':
-      return token.term;
-
-    case 'field':
-      return `${token.key}=${token.value}`;
-
-    case 'op':
-      return token.op;
-  }
-}
-
-export function tokensToString(tokens: Token[]): string {
-  return tokens.map(tokenToString).join('');
-}
-
-export function removeTokenByIndex(tokens: readonly Token[], index: number): Token[] {
-  const newTokens = tokens.slice();
-  if (newTokens[index - 1]?.type === 'space') {
-    newTokens.splice(index - 1, 2);
-  } else if (newTokens[index + 1]?.type === 'space') {
-    newTokens.splice(index, 2);
-  } else {
-    newTokens.splice(index, 1);
-  }
-  return newTokens;
-}
-
-export function tokenToHtml(token: Token, index: number): string {
-  if (token.type === 'space') return ' ';
-  return `<span class="${token.type}" data-tooltip='Index: ${index}'>${
-    token.type === 'field'
-      ? `${escapeHtml(token.key)}<span class="eq">=</span>${escapeHtml(token.value)}`
-      : escapeHtml(tokenToString(token))
-  }${
-    oneOf(token.type, 'term', 'field')
-      ? `<span class="closer-cont"><span class="closer" data-term-index="${index}"></span></span>`
-      : ''
-  }</span>`;
-}
-
-export function parseTokens(text: string): Token[] {
+export function parseToSearchTokens(text: string): SearchToken[] {
   const parts = text.replace(/\s+$/, ' ').split(' '); // max on space at the end
-  const tokens: Token[] = [];
+  const tokens: SearchToken[] = [];
   for (let i = 0; i < parts.length; i++) {
-    if (i > 0) tokens.push({ type: 'space' });
+    if (i > 0) tokens.push({ type: 'space', value: ' ' });
     const part = parts[i];
     if (part) {
       if (part === 'AND' || part === 'OR' || part === 'NOT') {
-        tokens.push({ type: 'op', op: part });
+        tokens.push({ type: 'logic', logic: part });
       } else {
         const eqs = part.split('=');
         tokens.push(
@@ -102,6 +131,63 @@ export function parseTokens(text: string): Token[] {
     }
   }
   return tokens;
+}
+
+export function searchTokenToString(token: SearchToken): string {
+  switch (token.type) {
+    case 'space':
+      return token.value;
+
+    case 'term':
+      return token.term;
+
+    case 'field':
+      return `${token.key}=${token.value}`;
+
+    case 'logic':
+      return token.logic;
+  }
+}
+
+export function searchTokensToString(searchTokens: SearchToken[]): string {
+  return searchTokens.map(searchTokenToString).join('');
+}
+
+export function removeSearchTokenByIndex(
+  tokens: readonly SearchToken[],
+  index: number,
+): SearchToken[] {
+  const newTokens = tokens.slice();
+  if (newTokens[index - 1]?.type === 'space') {
+    newTokens.splice(index - 1, 2);
+  } else if (newTokens[index + 1]?.type === 'space') {
+    newTokens.splice(index, 2);
+  } else {
+    newTokens.splice(index, 1);
+  }
+  return newTokens;
+}
+
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function searchTokenToHtml(searchToken: SearchToken, index: number): string {
+  if (searchToken.type === 'space') return searchToken.value;
+  return `<span class="${searchToken.type}" data-tooltip='Index: ${index}'>${
+    searchToken.type === 'field'
+      ? `${escapeHtml(searchToken.key)}<span class="eq">=</span>${escapeHtml(searchToken.value)}`
+      : escapeHtml(searchTokenToString(searchToken))
+  }${
+    oneOf(searchToken.type, 'term', 'field')
+      ? `<span class="closer-cont"><span class="closer" data-term-index="${index}"></span></span>`
+      : ''
+  }</span>`;
 }
 
 // -------------------------------
@@ -120,7 +206,7 @@ function escapeRegex(string: string): string {
 }
 
 const LOG_COLUMN = C('_log');
-export function tokensToExpression(tokens: Token[]): SqlExpression {
+export function tokensToExpression(tokens: SearchToken[]): SqlExpression {
   return SqlExpression.and(
     ...filterMap(tokens, token => {
       switch (token.type) {
