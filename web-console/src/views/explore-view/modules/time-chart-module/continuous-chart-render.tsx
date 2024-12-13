@@ -156,6 +156,7 @@ export interface ContinuousChartRenderProps {
   margin?: Margin;
 
   yAxis?: 'left' | 'right';
+  showHorizontalGridlines?: 'auto' | 'always' | 'never';
 
   /**
    * The optional range of the x-axis to show, if not set it defaults to the extent of the data
@@ -176,6 +177,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     stage,
     margin,
     yAxis,
+    showHorizontalGridlines,
     domainRange,
     onChangeRange,
   } = props;
@@ -494,6 +496,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
     };
   }
 
+  const gridlinesVisible =
+    showHorizontalGridlines === 'always' ||
+    (showHorizontalGridlines !== 'never' && innerStage.height > 75);
+
   const nowX = timeScale(now);
   // console.log(`render chart with range: ${domainRange}`);
   return (
@@ -506,19 +512,15 @@ export const ContinuousChartRender = function ContinuousChartRender(
         onMouseDown={handleMouseDown}
       >
         <g transform={`translate(${chartMargin.left},${chartMargin.top})`}>
-          <g
-            className="h-gridline"
-            transform="translate(0,0)"
-            ref={(node: any) =>
-              select(node).call(
-                axisLeft(measureScale)
-                  .tickValues(measureScale.ticks(3).filter(v => v !== 0))
-                  .tickSize(-innerStage.width)
-                  .tickFormat(() => '')
-                  .tickSizeOuter(0),
-              )
-            }
-          />
+          {gridlinesVisible && (
+            <g className="h-gridline" transform="translate(0,0)">
+              {filterMap(measureScale.ticks(3), (v, i) => {
+                if (v === 0) return;
+                const y = measureScale(v);
+                return <line key={i} x1={0} y1={y} x2={innerStage.width} y2={y} />;
+              })}
+            </g>
+          )}
           <g clipPath={`xywh(0px 0px ${innerStage.width}px ${innerStage.height}px) view-box`}>
             {selection && (
               <rect

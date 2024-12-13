@@ -667,19 +667,13 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
         onMouseDown={handleMouseDown}
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
-          <g
-            className="h-gridline"
-            transform="translate(0,0)"
-            ref={(node: any) =>
-              select(node).call(
-                axisLeft(statScale)
-                  .tickValues(statScale.ticks(3).filter(v => v !== 0))
-                  .tickSize(-innerStage.width)
-                  .tickFormat(() => '')
-                  .tickSizeOuter(0),
-              )
-            }
-          />
+          <g className="h-gridline" transform="translate(0,0)">
+            {filterMap(statScale.ticks(3), (v, i) => {
+              if (v === 0) return;
+              const y = statScale(v);
+              return <line key={i} x1={0} y1={y} x2={innerStage.width} y2={y} />;
+            })}
+          </g>
           <g clipPath={`xywh(0px 0px ${innerStage.width}px ${innerStage.height}px) view-box`}>
             {bubbleInfo && (
               <rect
