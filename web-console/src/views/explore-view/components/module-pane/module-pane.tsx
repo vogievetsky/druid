@@ -285,7 +285,7 @@ export const ModulePane = function ModulePane(props: ModulePaneProps) {
             querySource={querySource}
             onUpdateParameterValues={updateParameterValues}
             parameters={module.parameters}
-            parameterValues={parameterValues}
+            parameterValues={parameterValuesWithDefaults}
             onAddToSourceQueryAsColumn={onAddToSourceQueryAsColumn}
             onAddToSourceQueryAsMeasure={onAddToSourceQueryAsMeasure}
           />

@@ -20,7 +20,7 @@ import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
 import { max, sum } from 'd3-array';
-import { axisBottom, axisLeft } from 'd3-axis';
+import { axisBottom, axisLeft, axisRight } from 'd3-axis';
 import { scaleLinear, scaleOrdinal, scaleUtc } from 'd3-scale';
 import { schemeDark2 } from 'd3-scale-chromatic';
 import { select } from 'd3-selection';
@@ -42,12 +42,22 @@ import {
   formatStartDuration,
   groupBy,
   minute,
+  second,
   TZ_UTC,
 } from '../../../../utils';
 
 import './continuous-chart-render.scss';
 
-const CHART_MARGIN: Margin = { top: 20, right: 10, bottom: 25, left: 70 };
+const Y_AXIS_WIDTH = 60;
+
+function getDefaultChartMargin(yAxis: undefined | 'left' | 'right') {
+  return {
+    top: 20,
+    right: 10 + (yAxis === 'right' ? Y_AXIS_WIDTH : 0),
+    bottom: 25,
+    left: 10 + (yAxis === 'left' ? Y_AXIS_WIDTH : 0),
+  };
+}
 
 const EXTEND_X_SCALE_DOMAIN_BY = 1;
 
@@ -66,18 +76,17 @@ export interface StackedRangeDatum extends RangeDatum {
   offset: number;
 }
 
-function fullInGaps(ds: readonly StackedRangeDatum[]): (StackedRangeDatum | null)[] {
-  let lastDatum: StackedRangeDatum | undefined = ds[0];
+function fillInGaps(ds: readonly StackedRangeDatum[]): (StackedRangeDatum | null)[] {
+  if (!ds.length) return [];
+  let lastDatum = ds[0];
   const dsWithGapMarkers: (StackedRangeDatum | null)[] = [lastDatum];
   for (let i = 1; i < ds.length; i++) {
     const datum = ds[i];
-    if (!lastDatum || lastDatum.start === datum.end) {
-      lastDatum = datum;
-    } else {
+    if (lastDatum.start !== datum.end) {
       dsWithGapMarkers.push(null);
-      lastDatum = undefined;
     }
     dsWithGapMarkers.push(datum);
+    lastDatum = datum;
   }
   return dsWithGapMarkers;
 }
@@ -144,12 +153,15 @@ export interface ContinuousChartRenderProps {
    * The width x height to render
    */
   stage: Stage;
+  margin?: Margin;
+
+  yAxis?: 'left' | 'right';
 
   /**
    * The optional range of the x-axis to show, if not set it defaults to the extent of the data
    */
   domainRange: Range | undefined;
-  changeRange(range: Range): void;
+  onChangeRange(range: Range): void;
 }
 
 export const ContinuousChartRender = function ContinuousChartRender(
@@ -162,8 +174,10 @@ export const ContinuousChartRender = function ContinuousChartRender(
     curveType,
 
     stage,
+    margin,
+    yAxis,
     domainRange,
-    changeRange,
+    onChangeRange,
   } = props;
   const [mouseDownAt, setMouseDownAt] = useState<
     { time: number; action: 'select' | 'shift' } | undefined
@@ -217,17 +231,18 @@ export const ContinuousChartRender = function ContinuousChartRender(
     return scaleOrdinal(schemeDark2);
   }, []);
 
-  const innerStage = stage.applyMargin(CHART_MARGIN);
+  const chartMargin = { ...margin, ...getDefaultChartMargin(yAxis) };
+  const innerStage = stage.applyMargin(chartMargin);
 
-  const effectiveDateRange =
+  const effectiveDomainRange =
     domainRange ||
     (data.length ? [data[data.length - 1].start, data[0].end] : getTodayRange(TZ_UTC));
 
   const baseTimeScale = scaleUtc()
-    .domain(effectiveDateRange)
+    .domain(effectiveDomainRange)
     .range([EXTEND_X_SCALE_DOMAIN_BY, innerStage.width - EXTEND_X_SCALE_DOMAIN_BY]);
   const timeScale = shiftOffset
-    ? baseTimeScale.copy().domain(offsetRange(effectiveDateRange, shiftOffset))
+    ? baseTimeScale.copy().domain(offsetRange(effectiveDomainRange, shiftOffset))
     : baseTimeScale;
 
   const maxMeasure = max(stackedData, d => d.measure + d.offset);
@@ -241,8 +256,12 @@ export const ContinuousChartRender = function ContinuousChartRender(
     e.preventDefault();
 
     const rect = svg.getBoundingClientRect();
-    const x = clamp(e.clientX - rect.x - CHART_MARGIN.left, 1, innerStage.width - 1);
-    const y = e.clientY - rect.y - CHART_MARGIN.top;
+    const x = clamp(
+      e.clientX - rect.x - chartMargin.left,
+      EXTEND_X_SCALE_DOMAIN_BY,
+      innerStage.width - EXTEND_X_SCALE_DOMAIN_BY,
+    );
+    const y = e.clientY - rect.y - chartMargin.top;
     const time = baseTimeScale.invert(x).valueOf();
     const action = y > innerStage.height || e.shiftKey ? 'shift' : 'select';
     setMouseDownAt({
@@ -264,8 +283,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
-    const x = e.clientX - rect.x - CHART_MARGIN.left;
-    const y = e.clientY - rect.y - CHART_MARGIN.top;
+    const x = e.clientX - rect.x - chartMargin.left;
+    const y = e.clientY - rect.y - chartMargin.top;
 
     if (mouseDownAt) {
       e.preventDefault();
@@ -274,7 +293,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
         const b = baseTimeScale.invert(x).valueOf();
         setShiftOffset(mouseDownAt.time.valueOf() - b.valueOf());
       } else {
-        const b = baseTimeScale.invert(clamp(x, 1, innerStage.width - 1)).valueOf();
+        const b = baseTimeScale
+          .invert(clamp(x, EXTEND_X_SCALE_DOMAIN_BY, innerStage.width - EXTEND_X_SCALE_DOMAIN_BY))
+          .valueOf();
         if (mouseDownAt.time < b) {
           setSelectionIfNeeded({
             start: granularity.floor(new Date(mouseDownAt.time), TZ_UTC).valueOf(),
@@ -316,15 +337,21 @@ export const ContinuousChartRender = function ContinuousChartRender(
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
-    const x = e.clientX - rect.x - CHART_MARGIN.left;
-    const y = e.clientY - rect.y - CHART_MARGIN.top;
+    const x = e.clientX - rect.x - chartMargin.left;
+    const y = e.clientY - rect.y - chartMargin.top;
 
     setShiftOffset(undefined);
     if (mouseDownAt.action === 'shift' || e.shiftKey) {
       if (shiftOffset) {
-        changeRange(
-          offsetRange(effectiveDateRange, shiftOffset, n =>
-            granularity.round(new Date(n), TZ_UTC).valueOf(),
+        const domainRangeExtent = effectiveDomainRange[1] - effectiveDomainRange[0];
+        const snapGranularity =
+          domainRangeExtent > granularity.getCanonicalLength() * 5 &&
+          domainRangeExtent > second.canonicalLength
+            ? granularity
+            : new Duration('PT1S');
+        onChangeRange(
+          offsetRange(effectiveDomainRange, shiftOffset, n =>
+            snapGranularity.round(new Date(n), TZ_UTC).valueOf(),
           ),
         );
       }
@@ -354,7 +381,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
     return groupBy(
       stackedData,
       d => String(d.stack),
-      dataInStack => fullInGaps(dataInStack),
+      dataInStack => fillInGaps(dataInStack),
     );
   }, [markType, stackedData]);
 
@@ -440,8 +467,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
     }
 
     hoveredOpenOn = {
-      x: CHART_MARGIN.left + timeScale((selection.start + selection.end) / 2),
-      y: CHART_MARGIN.top,
+      x: chartMargin.left + timeScale((selection.start + selection.end) / 2),
+      y: chartMargin.top,
       title,
       text: (
         <>
@@ -457,7 +484,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                 onClick={() => {
                   if (!selection) return;
                   setSelection(undefined);
-                  changeRange([selection.start, selection.end]);
+                  onChangeRange([selection.start, selection.end]);
                 }}
               />
             </div>
@@ -468,6 +495,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
   }
 
   const nowX = timeScale(now);
+  // console.log(`render chart with range: ${domainRange}`);
   return (
     <div className="continuous-chart-render">
       <svg
@@ -477,12 +505,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         preserveAspectRatio="xMinYMin meet"
         onMouseDown={handleMouseDown}
       >
-        <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
-          <defs>
-            <clipPath id="chart-clip-area">
-              <rect {...innerStage.toWidthHeight()} />
-            </clipPath>
-          </defs>
+        <g transform={`translate(${chartMargin.left},${chartMargin.top})`}>
           <g
             className="h-gridline"
             transform="translate(0,0)"
@@ -496,7 +519,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
               )
             }
           />
-          <g clipPath="url(#chart-clip-area)">
+          <g clipPath={`xywh(0px 0px ${innerStage.width}px ${innerStage.height}px) view-box`}>
             {selection && (
               <rect
                 className={classNames('selection', { finalized: selection.finalized })}
@@ -586,13 +609,13 @@ export const ContinuousChartRender = function ContinuousChartRender(
             {!!shiftOffset && (
               <rect
                 className="shifter"
-                x={shiftOffset > 0 ? timeScale(effectiveDateRange[1]) : 0}
+                x={shiftOffset > 0 ? timeScale(effectiveDomainRange[1]) : 0}
                 y={0}
                 height={innerStage.height}
                 width={
                   shiftOffset > 0
-                    ? innerStage.width - timeScale(effectiveDateRange[1])
-                    : timeScale(effectiveDateRange[0])
+                    ? innerStage.width - timeScale(effectiveDomainRange[1])
+                    : timeScale(effectiveDomainRange[0])
                 }
               />
             )}
@@ -609,18 +632,33 @@ export const ContinuousChartRender = function ContinuousChartRender(
             x={0}
             y={innerStage.height}
             width={innerStage.width}
-            height={CHART_MARGIN.bottom}
+            height={chartMargin.bottom}
           />
-          <g
-            className="axis-y"
-            ref={(node: any) =>
-              select(node).call(
-                axisLeft(measureScale)
-                  .ticks(3)
-                  .tickFormat(e => formatNumber(e.valueOf())),
-              )
-            }
-          />
+          {yAxis === 'left' && (
+            <g
+              className="axis-y"
+              ref={(node: any) =>
+                select(node).call(
+                  axisLeft(measureScale)
+                    .ticks(3)
+                    .tickFormat(e => formatNumber(e.valueOf())),
+                )
+              }
+            />
+          )}
+          {yAxis === 'right' && (
+            <g
+              className="axis-y"
+              transform={`translate(${innerStage.width},0)`}
+              ref={(node: any) =>
+                select(node).call(
+                  axisRight(measureScale)
+                    .ticks(3)
+                    .tickFormat(e => formatNumber(e.valueOf())),
+                )
+              }
+            />
+          )}
         </g>
       </svg>
       {!data.length && (

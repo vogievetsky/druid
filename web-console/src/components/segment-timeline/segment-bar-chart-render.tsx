@@ -35,6 +35,7 @@ import type { Margin, Stage } from '../../utils';
 import {
   allSameValue,
   arraysEqualByElement,
+  clamp,
   day,
   Duration,
   filterMap,
@@ -363,7 +364,11 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
       setSelection(undefined);
     } else {
       const rect = svg.getBoundingClientRect();
-      const x = e.clientX - rect.x - CHART_MARGIN.left;
+      const x = clamp(
+        e.clientX - rect.x - CHART_MARGIN.left,
+        EXTEND_X_SCALE_DOMAIN_BY,
+        innerStage.width - EXTEND_X_SCALE_DOMAIN_BY,
+      );
       const y = e.clientY - rect.y - CHART_MARGIN.top;
       const time = baseTimeScale.invert(x);
       const action = y > innerStage.height || e.shiftKey ? 'shift' : 'select';
@@ -385,10 +390,12 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
     if (mouseDownAt) {
       e.preventDefault();
 
-      const b = baseTimeScale.invert(x);
       if (mouseDownAt.action === 'shift' || e.shiftKey) {
-        setShiftOffset(mouseDownAt.time.valueOf() - b.valueOf());
+        setShiftOffset(mouseDownAt.time.valueOf() - baseTimeScale.invert(x).valueOf());
       } else {
+        const b = baseTimeScale.invert(
+          clamp(x, EXTEND_X_SCALE_DOMAIN_BY, innerStage.width - EXTEND_X_SCALE_DOMAIN_BY),
+        );
         if (mouseDownAt.time < b) {
           setSelectionIfNeeded({
             start: day.floor(mouseDownAt.time, TZ_UTC),
@@ -660,11 +667,6 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
         onMouseDown={handleMouseDown}
       >
         <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
-          <defs>
-            <clipPath id="chart-clip-area">
-              <rect {...innerStage.toWidthHeight()} />
-            </clipPath>
-          </defs>
           <g
             className="h-gridline"
             transform="translate(0,0)"
@@ -678,7 +680,7 @@ export const SegmentBarChartRender = function SegmentBarChartRender(
               )
             }
           />
-          <g clipPath="url(#chart-clip-area)">
+          <g clipPath={`xywh(0px 0px ${innerStage.width}px ${innerStage.height}px) view-box`}>
             {bubbleInfo && (
               <rect
                 className="hover-highlight"

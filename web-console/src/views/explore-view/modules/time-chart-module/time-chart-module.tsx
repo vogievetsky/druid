@@ -237,6 +237,9 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
       },
     });
 
+    const domainRange = getRangeInExpression(where, timeColumnName || '__time');
+    // console.log(`rendering time chart module with ${domainRange}`);
+
     const sourceData = sourceDataState.getSomeData();
     const errorMessage = sourceDataState.getErrorMessage();
     return (
@@ -248,8 +251,10 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
             markType={parameterValues.markType}
             curveType={parameterValues.curveType}
             stage={stage}
-            domainRange={getRangeInExpression(where, timeColumnName || '__time')}
-            changeRange={([start, end]) =>
+            yAxis="right"
+            domainRange={domainRange}
+            onChangeRange={([start, end]) => {
+              // console.log(`on change range: ${[start, end]}`);
               setWhere(
                 updateFilterClause(
                   where,
@@ -259,8 +264,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
                     `${new Date(start).toISOString()}/${new Date(end).toISOString()}`,
                   ),
                 ),
-              )
-            }
+              );
+            }}
           />
         )}
         {errorMessage && <Issue issue={errorMessage} />}
