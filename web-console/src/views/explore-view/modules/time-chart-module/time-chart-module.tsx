@@ -65,7 +65,7 @@ function getRangeInExpression(
   return;
 }
 
-function overQueryWhere(
+function overqueryWhere(
   where: SqlExpression,
   timeColumnName: string,
   granularity: Duration,
@@ -255,7 +255,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
         const dataset = (
           await runSqlQuery(
             querySource
-              .getInitQuery(overQueryWhere(where, timeColumnName, granularity, oneExtra))
+              .getInitQuery(overqueryWhere(where, timeColumnName, granularity, oneExtra))
               .applyIf(splitExpression && vs && !showOthers, q =>
                 q.addWhere(splitExpression!.cast('VARCHAR').in(vs!)),
               )
