@@ -22,7 +22,6 @@ import classNames from 'classnames';
 import { max, sort, sum } from 'd3-array';
 import { axisBottom, axisLeft, axisRight } from 'd3-axis';
 import { scaleLinear, scaleOrdinal, scaleUtc } from 'd3-scale';
-import { schemePaired } from 'd3-scale-chromatic';
 import { select } from 'd3-selection';
 import type { Area, Line } from 'd3-shape';
 import { area, curveLinear, curveMonotoneX, curveStep, line } from 'd3-shape';
@@ -63,7 +62,8 @@ function getDefaultChartMargin(yAxis: undefined | 'left' | 'right') {
 const EXTEND_X_SCALE_DOMAIN_BY = 1;
 
 export const OTHER_VALUE = 'Other';
-const OTHER_COLOR = '#999999';
+const OTHER_COLOR = '#666666';
+const COLORS = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02', '#a6761d'];
 
 // ---------------------------------------
 
@@ -231,13 +231,16 @@ export const ContinuousChartRender = function ContinuousChartRender(
   }, [data, stacks, markType]);
 
   function findStackedDatum(time: number, measure: number): StackedRangeDatum | undefined {
-    return stackedData.find(
-      r => r.start <= time && time < r.end && r.offset <= measure && measure < r.measure + r.offset,
+    const dataInRange = stackedData.filter(d => d.start <= time && time < d.end);
+    if (!dataInRange.length) return;
+    return (
+      dataInRange.find(r => r.offset <= measure && measure < r.measure + r.offset) ||
+      dataInRange[dataInRange.length - 1]
     );
   }
 
   const stackColorizer = useMemo(() => {
-    const s = scaleOrdinal(schemePaired);
+    const s = scaleOrdinal(COLORS);
     return (v: string) => (v === OTHER_VALUE ? OTHER_COLOR : s(v));
   }, []);
 

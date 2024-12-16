@@ -5603,16 +5603,6 @@ license_file_path: licenses/bin/d3-path.ISC
 
 ---
 
-name: "d3-scale-chromatic"
-license_category: binary
-module: web-console
-license_name: ISC License
-copyright: Mike Bostock
-version: 3.1.0
-license_file_path: licenses/bin/d3-scale-chromatic.ISC
-
----
-
 name: "d3-scale"
 license_category: binary
 module: web-console
