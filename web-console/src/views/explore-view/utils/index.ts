@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-export * from './expression-utils';
 export * from './filter-pattern-helpers';
 export * from './general';
 export * from './get-auto-granularity';

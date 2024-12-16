@@ -41,9 +41,11 @@ import {
   formatNumber,
   formatStartDuration,
   groupBy,
+  lookupBy,
   minute,
   second,
   TZ_UTC,
+  uniq,
 } from '../../../../utils';
 
 import './continuous-chart-render.scss';
@@ -74,21 +76,6 @@ export interface RangeDatum {
 
 export interface StackedRangeDatum extends RangeDatum {
   offset: number;
-}
-
-function fillInGaps(ds: readonly StackedRangeDatum[]): (StackedRangeDatum | null)[] {
-  if (!ds.length) return [];
-  let lastDatum = ds[0];
-  const dsWithGapMarkers: (StackedRangeDatum | null)[] = [lastDatum];
-  for (let i = 1; i < ds.length; i++) {
-    const datum = ds[i];
-    if (lastDatum.start !== datum.end) {
-      dsWithGapMarkers.push(null);
-    }
-    dsWithGapMarkers.push(datum);
-    lastDatum = datum;
-  }
-  return dsWithGapMarkers;
 }
 
 // ---------------------------------------
@@ -379,12 +366,52 @@ export const ContinuousChartRender = function ContinuousChartRender(
   });
 
   const byStack = useMemo(() => {
-    if (markType === 'bar') return [];
-    return groupBy(
+    if (markType === 'bar' || !stackedData.length) return [];
+
+    const stacks = uniq(stackedData.map(d => String(d.stack))); // Non-empty
+    const numStacks = stacks.length;
+    if (numStacks === 1) return [stackedData];
+
+    // Fill in 0s and make sure that the stacks are in the same order
+    const fullTimeIntervals = groupBy(
       stackedData,
-      d => String(d.stack),
-      dataInStack => fillInGaps(dataInStack),
+      d => String(d.start),
+      dataForStart => {
+        const stackToDatum = lookupBy(dataForStart, d => d.stack!);
+        return stacks.map(
+          (stack, stackIndex) =>
+            stackToDatum[stack] || {
+              ...dataForStart[0],
+              stack,
+              measure: 0,
+              offset: Math.max(
+                0,
+                ...filterMap(stacks.slice(0, stackIndex), s => stackToDatum[s]).map(
+                  d => d.offset + d.measure,
+                ),
+              ),
+            },
+        );
+      },
     );
+
+    // Add nulls to mark gaps in data
+    const seriesForStack: Record<string, (StackedRangeDatum | null)[]> = {};
+    for (const stack of stacks) seriesForStack[stack] = [];
+
+    let lastDatum: StackedRangeDatum | undefined;
+    for (const fullTimeInterval of fullTimeIntervals) {
+      const datum = fullTimeInterval[0];
+
+      if (lastDatum && lastDatum.start !== datum.end) {
+        for (const stack of stacks) seriesForStack[stack].push(null);
+      }
+
+      for (let i = 0; i < numStacks; i++) seriesForStack[stacks[i]].push(fullTimeInterval[i]);
+      lastDatum = datum;
+    }
+
+    return Object.values(seriesForStack);
   }, [markType, stackedData]);
 
   if (innerStage.isInvalid()) return;

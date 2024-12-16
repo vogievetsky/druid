@@ -200,7 +200,7 @@ export class ExploreState {
   public addInitTimeFilterIfNeeded(columns: readonly Column[]): ExploreState {
     if (!this.parsedSource) return this;
     if (!QuerySource.isSingleStarQuery(this.parsedSource)) return this; // Only trigger for `SELECT * FROM ...` queries
-    if (!this.where.equal(SqlLiteral.TRUE)) return this;
+    if (!this.where.equals(SqlLiteral.TRUE)) return this;
 
     // Either find the `__time::TIMESTAMP` column or use the first column if it is a TIMESTAMP
     const timeColumn =

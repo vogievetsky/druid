@@ -18,7 +18,15 @@
 
 import { isDate } from 'date-fns';
 import type { Column, FilterPattern, SqlExpression } from 'druid-query-toolkit';
-import { filterPatternToExpression, SqlComparison, SqlMulti, SqlQuery } from 'druid-query-toolkit';
+import {
+  filterPatternsToExpression,
+  filterPatternToExpression,
+  fitFilterPattern,
+  fitFilterPatterns,
+  SqlComparison,
+  SqlMulti,
+  SqlQuery,
+} from 'druid-query-toolkit';
 
 import { Duration, formatIsoDateRange, prettyFormatIsoDateWithMsIfNeeded } from '../../../utils';
 
@@ -139,4 +147,32 @@ export function addOrUpdatePattern(
     newPatterns.push(newPattern);
   }
   return newPatterns;
+}
+
+export function updateFilterPattern(
+  patterns: readonly FilterPattern[],
+  newPattern: FilterPattern,
+): FilterPattern[] {
+  let found = false;
+  const newPatterns = patterns.map(pattern => {
+    if (!('column' in pattern) || !('column' in newPattern)) return pattern;
+    if (pattern.column === newPattern.column) {
+      found = true;
+      return newPattern;
+    } else {
+      return pattern;
+    }
+  });
+
+  if (found) {
+    return newPatterns;
+  } else {
+    return [...newPatterns, newPattern];
+  }
+}
+
+export function updateFilterClause(filter: SqlExpression, clause: SqlExpression) {
+  return filterPatternsToExpression(
+    updateFilterPattern(fitFilterPatterns(filter), fitFilterPattern(clause)),
+  );
 }
