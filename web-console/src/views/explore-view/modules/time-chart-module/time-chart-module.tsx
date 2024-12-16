@@ -17,14 +17,14 @@
  */
 
 import { IconNames } from '@blueprintjs/icons';
-import type { SqlExpression } from 'druid-query-toolkit';
 import {
   C,
   F,
-  filterPatternsToExpression,
+  filterPatternToExpression,
   fitFilterPatterns,
   L,
   SqlCase,
+  SqlExpression,
 } from 'druid-query-toolkit';
 import { useMemo } from 'react';
 
@@ -71,24 +71,29 @@ function overqueryWhere(
   granularity: Duration,
   oneExtra: boolean,
 ) {
-  return filterPatternsToExpression(
-    fitFilterPatterns(where).map(pattern => {
-      if ('column' in pattern && pattern.column !== timeColumnName) return pattern;
-      if (pattern.type === 'timeInterval') {
-        let start = granularity.floor(pattern.start, TZ_UTC);
-        let end = granularity.ceil(pattern.end, TZ_UTC);
-        if (oneExtra) {
-          start = granularity.shift(start, TZ_UTC, -1);
-          end = granularity.shift(end, TZ_UTC, 1);
+  return SqlExpression.and(
+    ...fitFilterPatterns(where).map(pattern => {
+      if ('column' in pattern && pattern.column === timeColumnName) {
+        if (pattern.type === 'timeInterval') {
+          let start = granularity.floor(pattern.start, TZ_UTC);
+          let end = granularity.ceil(pattern.end, TZ_UTC);
+          if (oneExtra) {
+            start = granularity.shift(start, TZ_UTC, -1);
+            end = granularity.shift(end, TZ_UTC, 1);
+          }
+          return filterPatternToExpression({
+            ...pattern,
+            start,
+            end,
+          });
         }
-        return {
-          ...pattern,
-          start,
-          end,
-        };
+
+        if (pattern.type === 'timeRelative') {
+          // ToDo: fill this in
+          // return ...
+        }
       }
-      // ToDo: pattern.type === 'timeRelative'
-      return pattern;
+      return filterPatternToExpression(pattern);
     }),
   );
 }
