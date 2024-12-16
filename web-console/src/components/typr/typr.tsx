@@ -27,7 +27,6 @@ import {
   removeSearchTokenByIndex,
   searchTokensToString,
   searchTokenToHtml,
-  tokensToExpression,
 } from './token-utils';
 
 import './typr.scss';
@@ -35,8 +34,6 @@ import './typr.scss';
 export const Typr = function Typr() {
   const divRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState('hello world x=moon');
-
-  console.log(tokensToExpression(parseToSearchTokens(text)).toString());
 
   const handleInput = () => {
     if (divRef.current) {
@@ -49,9 +46,8 @@ export const Typr = function Typr() {
     const cont = divRef.current;
     if (!cont) return;
 
-    const tokens = parseToSearchTokens(text);
     const position = getCursorPositionInContentEditable(cont);
-    cont.innerHTML = tokens.map(searchTokenToHtml).join('') + ' ';
+    cont.innerHTML = parseToSearchTokens(text).map(searchTokenToHtml).join('') + ' ';
     setCursorPositionInContentEditable(cont, position);
   }, [text]);
 
