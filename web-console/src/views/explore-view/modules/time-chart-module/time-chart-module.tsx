@@ -18,7 +18,14 @@
 
 import { IconNames } from '@blueprintjs/icons';
 import type { SqlExpression } from 'druid-query-toolkit';
-import { C, F, fitFilterPatterns, L, SqlCase } from 'druid-query-toolkit';
+import {
+  C,
+  F,
+  filterPatternsToExpression,
+  fitFilterPatterns,
+  L,
+  SqlCase,
+} from 'druid-query-toolkit';
 import { useMemo } from 'react';
 
 import { Loader } from '../../../../components';
@@ -58,6 +65,34 @@ function getRangeInExpression(
   return;
 }
 
+function overQueryWhere(
+  where: SqlExpression,
+  timeColumnName: string,
+  granularity: Duration,
+  oneExtra: boolean,
+) {
+  return filterPatternsToExpression(
+    fitFilterPatterns(where).map(pattern => {
+      if ('column' in pattern && pattern.column !== timeColumnName) return pattern;
+      if (pattern.type === 'timeInterval') {
+        let start = granularity.floor(pattern.start, TZ_UTC);
+        let end = granularity.ceil(pattern.end, TZ_UTC);
+        if (oneExtra) {
+          start = granularity.shift(start, TZ_UTC, -1);
+          end = granularity.shift(end, TZ_UTC, 1);
+        }
+        return {
+          ...pattern,
+          start,
+          end,
+        };
+      }
+      // ToDo: pattern.type === 'timeRelative'
+      return pattern;
+    }),
+  );
+}
+
 interface TimeChartParameterValues {
   timeGranularity: string;
   splitColumn?: ExpressionMeta;
@@ -75,11 +110,14 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
   parameters: {
     timeGranularity: {
       type: 'option',
-      options: ['auto', 'PT1M', 'PT5M', 'PT30M', 'PT1H', 'P1D'],
+      options: ['auto', 'PT1S', 'PT5S', 'PT30S', 'PT1M', 'PT5M', 'PT30M', 'PT1H', 'P1D'],
       defaultValue: 'auto',
       important: true,
       optionLabels: {
         auto: 'Auto',
+        PT1S: 'Second',
+        PT5S: '5 seconds',
+        PT30S: '30 seconds',
         PT1M: 'Minute',
         PT5M: '5 minutes',
         PT30M: '30 minutes',
@@ -142,23 +180,43 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           )
         : parameterValues.timeGranularity;
 
-    const { splitColumn, numberToStack, showOthers, measure } = parameterValues;
+    const { splitColumn, numberToStack, showOthers, measure, markType } = parameterValues;
 
     const dataQuery = useMemo(() => {
       return {
-        initQuery: querySource.getInitQuery(where),
+        querySource,
+        where,
         timeGranularity,
         measure,
         splitExpression: splitColumn?.expression,
         numberToStack,
         showOthers,
+        oneExtra: markType !== 'bar',
       };
-    }, [querySource, where, timeGranularity, measure, splitColumn, numberToStack, showOthers]);
+    }, [
+      querySource,
+      where,
+      timeGranularity,
+      measure,
+      splitColumn,
+      numberToStack,
+      showOthers,
+      markType,
+    ]);
 
     const [sourceDataState, queryManager] = useQueryManager({
       query: dataQuery,
       processQuery: async (
-        { initQuery, timeGranularity, measure, splitExpression, numberToStack, showOthers },
+        {
+          querySource,
+          where,
+          timeGranularity,
+          measure,
+          splitExpression,
+          numberToStack,
+          showOthers,
+          oneExtra,
+        },
         cancelToken,
       ) => {
         if (!timeColumnName) {
@@ -170,7 +228,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
         const vs = splitExpression
           ? (
               await runSqlQuery(
-                initQuery
+                querySource
+                  .getInitQuery(where)
                   .addSelect(splitExpression.cast('VARCHAR').as('v'), { addToGroupBy: 'end' })
                   .changeOrderByExpression(measure.expression.toOrderByExpression('DESC'))
                   .changeLimitValue(numberToStack),
@@ -191,9 +250,12 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           };
         }
 
+        const effectiveVs = vs && showOthers ? vs.concat(OTHER_VALUE) : vs;
+
         const dataset = (
           await runSqlQuery(
-            initQuery
+            querySource
+              .getInitQuery(overQueryWhere(where, timeColumnName, granularity, oneExtra))
               .applyIf(splitExpression && vs && !showOthers, q =>
                 q.addWhere(splitExpression!.cast('VARCHAR').in(vs!)),
               )
@@ -214,7 +276,8 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
                   { addToGroupBy: 'end' },
                 );
               })
-              .addSelect(measure.expression.as(MEASURE_NAME)),
+              .addSelect(measure.expression.as(MEASURE_NAME))
+              .changeLimitValue(10000 * (effectiveVs ? Math.min(effectiveVs.length, 10) : 1)),
             cancelToken,
           )
         )
@@ -228,7 +291,6 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
             }),
           );
 
-        const effectiveVs = vs && showOthers ? vs.concat(OTHER_VALUE) : vs;
         return {
           effectiveVs,
           sourceData: dataset,
