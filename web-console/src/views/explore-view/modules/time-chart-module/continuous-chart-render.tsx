@@ -19,10 +19,10 @@
 import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import { max, sum } from 'd3-array';
+import { max, sort, sum } from 'd3-array';
 import { axisBottom, axisLeft, axisRight } from 'd3-axis';
 import { scaleLinear, scaleOrdinal, scaleUtc } from 'd3-scale';
-import { schemeDark2 } from 'd3-scale-chromatic';
+import { schemePaired } from 'd3-scale-chromatic';
 import { select } from 'd3-selection';
 import type { Area, Line } from 'd3-shape';
 import { area, curveLinear, curveMonotoneX, curveStep, line } from 'd3-shape';
@@ -45,7 +45,6 @@ import {
   minute,
   second,
   TZ_UTC,
-  uniq,
 } from '../../../../utils';
 
 import './continuous-chart-render.scss';
@@ -62,6 +61,9 @@ function getDefaultChartMargin(yAxis: undefined | 'left' | 'right') {
 }
 
 const EXTEND_X_SCALE_DOMAIN_BY = 1;
+
+export const OTHER_VALUE = 'Other';
+const OTHER_COLOR = '#999999';
 
 // ---------------------------------------
 
@@ -124,6 +126,7 @@ export interface ContinuousChartRenderProps {
    * If stacking is used then the stack bars should be ordered bottom to top.
    */
   data: RangeDatum[];
+  stacks: string[] | undefined;
 
   /**
    * The granularity that was used for bucketing.
@@ -157,7 +160,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
 ) {
   const {
     data,
+    stacks,
     granularity,
+
     markType,
     curveType,
 
@@ -192,13 +197,28 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const stackedData: StackedRangeDatum[] = useMemo(() => {
+    const effectiveStacks = stacks || ['undefined'];
+    const stackToIndex = lookupBy(
+      effectiveStacks,
+      s => s,
+      (_, i) => i,
+    );
+
+    // Sort the data into time descending column and stack order
+    const sortedData = sort(data, (a, b) => {
+      const diffStart = b.start - a.start;
+      if (diffStart) return diffStart;
+
+      return stackToIndex[String(a.stack)] - stackToIndex[String(b.stack)];
+    });
+
     if (markType === 'line') {
       // No need to stack
-      return data.map(d => ({ ...d, offset: 0 }));
+      return sortedData.map(d => ({ ...d, offset: 0 }));
     } else {
       let lastStart: number | undefined;
       let offset: number;
-      return data.map(d => {
+      return sortedData.map(d => {
         if (lastStart !== d.start) {
           offset = 0;
           lastStart = d.start;
@@ -208,7 +228,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
         return withOffset;
       });
     }
-  }, [data, markType]);
+  }, [data, stacks, markType]);
 
   function findStackedDatum(time: number, measure: number): StackedRangeDatum | undefined {
     return stackedData.find(
@@ -216,8 +236,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
     );
   }
 
-  const stackScale = useMemo(() => {
-    return scaleOrdinal(schemeDark2);
+  const stackColorizer = useMemo(() => {
+    const s = scaleOrdinal(schemePaired);
+    return (v: string) => (v === OTHER_VALUE ? OTHER_COLOR : s(v));
   }, []);
 
   const chartMargin = { ...margin, ...getDefaultChartMargin(yAxis) };
@@ -225,7 +246,9 @@ export const ContinuousChartRender = function ContinuousChartRender(
 
   const effectiveDomainRange =
     domainRange ||
-    (data.length ? [data[data.length - 1].start, data[0].end] : getTodayRange(TZ_UTC));
+    (stackedData.length
+      ? [stackedData[stackedData.length - 1].start, stackedData[0].end]
+      : getTodayRange(TZ_UTC));
 
   const baseTimeScale = scaleUtc()
     .domain(effectiveDomainRange)
@@ -368,8 +391,8 @@ export const ContinuousChartRender = function ContinuousChartRender(
   const byStack = useMemo(() => {
     if (markType === 'bar' || !stackedData.length) return [];
 
-    const stacks = uniq(stackedData.map(d => String(d.stack))); // Non-empty
-    const numStacks = stacks.length;
+    const effectiveStacks = stacks || ['undefined'];
+    const numStacks = effectiveStacks.length;
     if (numStacks === 1) return [stackedData];
 
     // Fill in 0s and make sure that the stacks are in the same order
@@ -378,7 +401,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
       d => String(d.start),
       dataForStart => {
         const stackToDatum = lookupBy(dataForStart, d => d.stack!);
-        return stacks.map(
+        return effectiveStacks.map(
           (stack, stackIndex) =>
             stackToDatum[stack] || {
               ...dataForStart[0],
@@ -386,7 +409,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
               measure: 0,
               offset: Math.max(
                 0,
-                ...filterMap(stacks.slice(0, stackIndex), s => stackToDatum[s]).map(
+                ...filterMap(effectiveStacks.slice(0, stackIndex), s => stackToDatum[s]).map(
                   d => d.offset + d.measure,
                 ),
               ),
@@ -397,22 +420,28 @@ export const ContinuousChartRender = function ContinuousChartRender(
 
     // Add nulls to mark gaps in data
     const seriesForStack: Record<string, (StackedRangeDatum | null)[]> = {};
-    for (const stack of stacks) seriesForStack[stack] = [];
+    for (const stack of effectiveStacks) {
+      seriesForStack[stack] = [];
+    }
 
     let lastDatum: StackedRangeDatum | undefined;
     for (const fullTimeInterval of fullTimeIntervals) {
       const datum = fullTimeInterval[0];
 
       if (lastDatum && lastDatum.start !== datum.end) {
-        for (const stack of stacks) seriesForStack[stack].push(null);
+        for (const stack of effectiveStacks) {
+          seriesForStack[stack].push(null);
+        }
       }
 
-      for (let i = 0; i < numStacks; i++) seriesForStack[stacks[i]].push(fullTimeInterval[i]);
+      for (let i = 0; i < numStacks; i++) {
+        seriesForStack[effectiveStacks[i]].push(fullTimeInterval[i]);
+      }
       lastDatum = datum;
     }
 
     return Object.values(seriesForStack);
-  }, [markType, stackedData]);
+  }, [markType, stackedData, stacks]);
 
   if (innerStage.isInvalid()) return;
 
@@ -572,7 +601,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                     style={
                       typeof stackedRow.stack !== 'undefined'
                         ? {
-                            fill: stackScale(stackedRow.stack),
+                            fill: stackColorizer(stackedRow.stack),
                           }
                         : undefined
                     }
@@ -596,7 +625,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                     style={
                       typeof stack !== 'undefined'
                         ? {
-                            fill: stackScale(stack),
+                            fill: stackColorizer(stack),
                           }
                         : undefined
                     }
@@ -614,7 +643,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                     style={
                       typeof stack !== 'undefined'
                         ? {
-                            stroke: stackScale(stack),
+                            stroke: stackColorizer(stack),
                           }
                         : undefined
                     }
@@ -629,7 +658,7 @@ export const ContinuousChartRender = function ContinuousChartRender(
                 style={
                   typeof selection.selectedDatum.stack !== 'undefined'
                     ? {
-                        fill: stackScale(selection.selectedDatum.stack),
+                        fill: stackColorizer(selection.selectedDatum.stack),
                       }
                     : undefined
                 }

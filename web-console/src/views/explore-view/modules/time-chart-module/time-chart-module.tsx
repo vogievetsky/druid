@@ -35,12 +35,11 @@ import type {
   Range,
   RangeDatum,
 } from './continuous-chart-render';
-import { ContinuousChartRender } from './continuous-chart-render';
+import { ContinuousChartRender, OTHER_VALUE } from './continuous-chart-render';
 
 const TIME_NAME = 't';
 const MEASURE_NAME = 'm';
 const STACK_NAME = 's';
-const OTHERS_VALUE = 'Other';
 const MIN_SLICE_WIDTH = 4;
 
 function getRangeInExpression(
@@ -172,7 +171,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           ? (
               await runSqlQuery(
                 initQuery
-                  .addSelect(splitExpression.as('v'), { addToGroupBy: 'end' })
+                  .addSelect(splitExpression.cast('VARCHAR').as('v'), { addToGroupBy: 'end' })
                   .changeOrderByExpression(measure.expression.toOrderByExpression('DESC'))
                   .changeLimitValue(numberToStack),
                 cancelToken,
@@ -196,7 +195,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
           await runSqlQuery(
             initQuery
               .applyIf(splitExpression && vs && !showOthers, q =>
-                q.addWhere(splitExpression!.in(vs!)),
+                q.addWhere(splitExpression!.cast('VARCHAR').in(vs!)),
               )
               .addSelect(F.timeFloor(C(timeColumnName), L(timeGranularity)).as(TIME_NAME), {
                 addToGroupBy: 'end',
@@ -207,9 +206,11 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
                 if (!splitExpression || !vs) return q; // Should never get here, doing this to make peace between eslint and TS
                 return q.addSelect(
                   (showOthers
-                    ? SqlCase.ifThenElse(splitExpression.in(vs), splitExpression, L(OTHERS_VALUE))
+                    ? SqlCase.ifThenElse(splitExpression.in(vs), splitExpression, L(OTHER_VALUE))
                     : splitExpression
-                  ).as(STACK_NAME),
+                  )
+                    .cast('VARCHAR')
+                    .as(STACK_NAME),
                   { addToGroupBy: 'end' },
                 );
               })
@@ -227,7 +228,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
             }),
           );
 
-        const effectiveVs = vs && showOthers ? vs.concat(OTHERS_VALUE) : vs;
+        const effectiveVs = vs && showOthers ? vs.concat(OTHER_VALUE) : vs;
         return {
           effectiveVs,
           sourceData: dataset,
@@ -247,6 +248,7 @@ ModuleRepository.registerModule<TimeChartParameterValues>({
         {sourceData && (
           <ContinuousChartRender
             data={sourceData.sourceData}
+            stacks={sourceData.effectiveVs}
             granularity={sourceData.granularity}
             markType={parameterValues.markType}
             curveType={parameterValues.curveType}
