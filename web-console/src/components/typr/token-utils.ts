@@ -70,7 +70,7 @@ export function removeTokenByIndex(tokens: readonly Token[], index: number): Tok
 }
 
 export function tokenToHtml(token: Token, index: number): string {
-  if (token.type === 'space') return ' ';
+  if (token.type === 'space') return '_';
   return `<span class="${token.type}" data-tooltip='Index: ${index}'>${
     token.type === 'field'
       ? `${escapeHtml(token.key)}<span class="eq">=</span>${escapeHtml(token.value)}`
@@ -83,7 +83,7 @@ export function tokenToHtml(token: Token, index: number): string {
 }
 
 export function parseTokens(text: string): Token[] {
-  const parts = text.replace(/\s+$/, ' ').split(' '); // max on space at the end
+  const parts = text.replace(/_+$/, '_').split('_'); // max on space at the end
   const tokens: Token[] = [];
   for (let i = 0; i < parts.length; i++) {
     if (i > 0) tokens.push({ type: 'space' });

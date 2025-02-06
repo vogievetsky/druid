@@ -18,6 +18,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { useGlobalEventListener } from '../../hooks';
+
 import {
   getCursorPositionInContentEditable,
   setCursorPositionInContentEditable,
@@ -34,7 +36,7 @@ import './typr.scss';
 
 export const Typr = function Typr() {
   const divRef = useRef<HTMLDivElement>(null);
-  const [text, setText] = useState('hello world x=moon');
+  const [text, setText] = useState('hello_world_x=moon');
 
   console.log(tokensToExpression(parseTokens(text)).toString());
 
@@ -51,15 +53,29 @@ export const Typr = function Typr() {
 
     const tokens = parseTokens(text);
     const position = getCursorPositionInContentEditable(cont);
-    cont.innerHTML = tokens.map(tokenToHtml).join('') + ' ';
-    setCursorPositionInContentEditable(cont, position);
+    console.log('position before update:', position);
+    setTimeout(() => {
+      const position = getCursorPositionInContentEditable(cont);
+      console.log('position at update:', position);
+      cont.innerHTML = tokens.map(tokenToHtml).join('') + ' ';
+      setCursorPositionInContentEditable(cont, position);
+    }, 1000);
   }, [text]);
+
+  useGlobalEventListener('keyup', () => {
+    const cont = divRef.current;
+    if (!cont) return;
+
+    const position = getCursorPositionInContentEditable(cont);
+    console.log('key up position:', position);
+  });
 
   return (
     <div
       className="typr"
       ref={divRef}
-      contentEditable="plaintext-only"
+      contentEditable
+      spellCheck={false}
       onInput={handleInput}
       onClick={e => {
         const target = e.target as HTMLElement;

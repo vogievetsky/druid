@@ -25,6 +25,8 @@
   line-height: 27px;
   font-family: Roboto Mono, Menlo, Liberation Mono, Courier, monospace;
   z-index: 0;
+  cursor: pointer;
+  caret-color: orange;
 
   .space {
     border-bottom: 1px solid white;
@@ -32,7 +34,9 @@
 
   .term {
     position: relative;
-    background: #4e3e07;
+    // background: #0f670d; // WHY does this hide caret?!
+    caret-color: red;
+    text-decoration: underline;
 
     .closer-cont {
       display: none;
