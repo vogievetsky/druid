@@ -30,93 +30,119 @@
         }
       ]
     },
-    "intervals": {
-      "oneOf": [
-        {
-          "type": "array",
-          "description": "Array of ISO-8601 interval strings",
-          "items": {
-            "type": "string",
-            "pattern": "^[^/]+/[^/]+$"
-          }
-        },
-        {
-          "type": "object",
-          "description": "Interval specification object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["intervals", "segments"]
-            },
-            "intervals": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "pattern": "^[^/]+/[^/]+$"
-              }
-            },
-            "segments": {
-              "type": "array",
-              "description": "Array of segment specifications"
-            }
-          },
-          "required": ["type"]
-        }
-      ]
-    },
-    "filter": {
-      "$ref": "#/definitions/filter"
-    },
-    "granularity": {
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "all",
-            "none",
-            "second",
-            "minute",
-            "fifteen_minute",
-            "thirty_minute",
-            "hour",
-            "day",
-            "week",
-            "month",
-            "quarter",
-            "year"
-          ]
-        },
-        {
-          "$ref": "#/definitions/granularityObject"
-        }
-      ]
-    },
-    "virtualColumns": {
-      "type": "array",
-      "description": "Virtual columns for computed values",
-      "items": {
-        "$ref": "#/definitions/virtualColumn"
-      }
-    },
-    "aggregations": {
-      "type": "array",
-      "description": "Aggregations to compute",
-      "items": {
-        "$ref": "#/definitions/aggregation"
-      }
-    },
-    "postAggregations": {
-      "type": "array",
-      "description": "Post-aggregations to compute",
-      "items": {
-        "$ref": "#/definitions/postAggregation"
-      }
-    },
     "context": {
       "$ref": "#/definitions/queryContext"
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "queryType": {
+            "not": { "const": "dataSourceMetadata" }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "intervals": {
+            "oneOf": [
+              {
+                "type": "array",
+                "description": "Array of ISO-8601 interval strings",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[^/]+/[^/]+$"
+                }
+              },
+              {
+                "type": "object",
+                "description": "Interval specification object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["intervals", "segments"]
+                  },
+                  "intervals": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[^/]+/[^/]+$"
+                    }
+                  },
+                  "segments": {
+                    "type": "array",
+                    "description": "Array of segment specifications"
+                  }
+                },
+                "required": ["type"]
+              }
+            ]
+          },
+          "filter": {
+            "$ref": "#/definitions/filter"
+          },
+          "virtualColumns": {
+            "type": "array",
+            "description": "Virtual columns for computed values",
+            "items": {
+              "$ref": "#/definitions/virtualColumn"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": {
+            "enum": ["timeseries", "topN", "groupBy"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "granularity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "none",
+                  "second",
+                  "minute",
+                  "fifteen_minute",
+                  "thirty_minute",
+                  "hour",
+                  "day",
+                  "week",
+                  "month",
+                  "quarter",
+                  "year"
+                ]
+              },
+              {
+                "$ref": "#/definitions/granularityObject"
+              }
+            ]
+          },
+          "aggregations": {
+            "type": "array",
+            "description": "Aggregations to compute",
+            "items": {
+              "$ref": "#/definitions/aggregation"
+            }
+          },
+          "postAggregations": {
+            "type": "array",
+            "description": "Post-aggregations to compute",
+            "items": {
+              "$ref": "#/definitions/postAggregation"
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -245,6 +271,30 @@
       "then": {
         "required": ["searchDimensions", "query"],
         "properties": {
+          "granularity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "none",
+                  "second",
+                  "minute",
+                  "fifteen_minute",
+                  "thirty_minute",
+                  "hour",
+                  "day",
+                  "week",
+                  "month",
+                  "quarter",
+                  "year"
+                ]
+              },
+              {
+                "$ref": "#/definitions/granularityObject"
+              }
+            ]
+          },
           "searchDimensions": {
             "type": "array",
             "description": "Dimensions to search",
