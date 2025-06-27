@@ -1,0 +1,1304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Druid Native JSON Query Schema",
+  "description": "Schema for Druid native JSON queries",
+  "type": "object",
+  "required": ["queryType", "dataSource"],
+  "properties": {
+    "queryType": {
+      "type": "string",
+      "description": "The type of query to execute",
+      "enum": [
+        "timeseries",
+        "topN",
+        "groupBy",
+        "scan",
+        "search",
+        "timeBoundary",
+        "segmentMetadata",
+        "dataSourceMetadata"
+      ]
+    },
+    "dataSource": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Simple table name"
+        },
+        {
+          "$ref": "#/definitions/dataSource"
+        }
+      ]
+    },
+    "intervals": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "Array of ISO-8601 interval strings",
+          "items": {
+            "type": "string",
+            "pattern": "^[^/]+/[^/]+$"
+          }
+        },
+        {
+          "type": "object",
+          "description": "Interval specification object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["intervals", "segments"]
+            },
+            "intervals": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[^/]+/[^/]+$"
+              }
+            },
+            "segments": {
+              "type": "array",
+              "description": "Array of segment specifications"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "filter": {
+      "$ref": "#/definitions/filter"
+    },
+    "granularity": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "all",
+            "none",
+            "second",
+            "minute",
+            "fifteen_minute",
+            "thirty_minute",
+            "hour",
+            "day",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ]
+        },
+        {
+          "$ref": "#/definitions/granularityObject"
+        }
+      ]
+    },
+    "virtualColumns": {
+      "type": "array",
+      "description": "Virtual columns for computed values",
+      "items": {
+        "$ref": "#/definitions/virtualColumn"
+      }
+    },
+    "aggregations": {
+      "type": "array",
+      "description": "Aggregations to compute",
+      "items": {
+        "$ref": "#/definitions/aggregation"
+      }
+    },
+    "postAggregations": {
+      "type": "array",
+      "description": "Post-aggregations to compute",
+      "items": {
+        "$ref": "#/definitions/postAggregation"
+      }
+    },
+    "context": {
+      "$ref": "#/definitions/queryContext"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "timeseries" }
+        }
+      },
+      "then": {
+        "properties": {
+          "descending": {
+            "type": "boolean",
+            "description": "Whether to sort results in descending order"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of results to return"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "topN" }
+        }
+      },
+      "then": {
+        "required": ["dimension", "threshold", "metric"],
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "description": "The dimension to get top values for"
+          },
+          "threshold": {
+            "type": "integer",
+            "description": "The number of top values to return"
+          },
+          "metric": {
+            "type": "string",
+            "description": "The metric to sort by"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "groupBy" }
+        }
+      },
+      "then": {
+        "required": ["dimensions"],
+        "properties": {
+          "dimensions": {
+            "type": "array",
+            "description": "Dimensions to group by",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/definitions/dimensionSpec"
+                }
+              ]
+            }
+          },
+          "having": {
+            "$ref": "#/definitions/having"
+          },
+          "limitSpec": {
+            "$ref": "#/definitions/limitSpec"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "scan" }
+        }
+      },
+      "then": {
+        "properties": {
+          "columns": {
+            "type": "array",
+            "description": "Columns to return",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of rows to return"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Number of rows to skip"
+          },
+          "resultFormat": {
+            "type": "string",
+            "enum": ["list", "compactedList", "valueVector"],
+            "description": "Format of the result"
+          },
+          "batchSize": {
+            "type": "integer",
+            "description": "Batch size for streaming"
+          },
+          "legacy": {
+            "type": "boolean",
+            "description": "Use legacy scan query mode"
+          },
+          "order": {
+            "type": "string",
+            "enum": ["none", "ascending", "descending"],
+            "description": "Result ordering"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "search" }
+        }
+      },
+      "then": {
+        "required": ["searchDimensions", "query"],
+        "properties": {
+          "searchDimensions": {
+            "type": "array",
+            "description": "Dimensions to search",
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "object",
+            "description": "Search query specification"
+          },
+          "sort": {
+            "type": "object",
+            "description": "Sort specification for results"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of results to return"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "timeBoundary" }
+        }
+      },
+      "then": {
+        "properties": {
+          "bound": {
+            "type": "string",
+            "enum": ["minTime", "maxTime"],
+            "description": "Which boundary to return (minTime, maxTime, or null for both)"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "queryType": { "const": "segmentMetadata" }
+        }
+      },
+      "then": {
+        "properties": {
+          "toInclude": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["all", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["all", "none", "list"]
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Array of column names to include"
+                  }
+                },
+                "required": ["type"]
+              }
+            ],
+            "description": "Columns to include in the result"
+          },
+          "merge": {
+            "type": "boolean",
+            "description": "Merge all individual segment metadata results into a single result"
+          },
+          "analysisTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cardinality",
+                "interval",
+                "minmax",
+                "size",
+                "timestampSpec",
+                "queryGranularity",
+                "aggregators",
+                "rollup",
+                "projections"
+              ]
+            },
+            "description": "Column properties to calculate and return"
+          },
+          "aggregatorMergeStrategy": {
+            "type": "string",
+            "enum": ["strict", "lenient", "earliest", "latest"],
+            "description": "Strategy for merging aggregators"
+          },
+          "lenientAggregatorMerge": {
+            "type": "boolean",
+            "description": "Deprecated. Use aggregatorMergeStrategy instead"
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "dataSource": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["table", "lookup", "union", "inline", "query", "join"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "table" } }
+          },
+          "then": {
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The name of the table datasource"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "lookup" } }
+          },
+          "then": {
+            "required": ["lookup"],
+            "properties": {
+              "lookup": {
+                "type": "string",
+                "description": "The name of the lookup to query"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "union" } }
+          },
+          "then": {
+            "required": ["dataSources"],
+            "properties": {
+              "dataSources": {
+                "type": "array",
+                "description": "Array of datasources to union",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "$ref": "#/definitions/dataSource"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "inline" } }
+          },
+          "then": {
+            "required": ["columnNames", "rows"],
+            "properties": {
+              "columnNames": {
+                "type": "array",
+                "description": "Array of column names",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "columnTypes": {
+                "type": "array",
+                "description": "Array of column types",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rows": {
+                "type": "array",
+                "description": "Array of row data",
+                "items": {
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "query" } }
+          },
+          "then": {
+            "required": ["query"],
+            "properties": {
+              "query": {
+                "type": "object",
+                "description": "The subquery to use as a datasource"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "join" } }
+          },
+          "then": {
+            "required": ["left", "right", "condition", "joinType"],
+            "properties": {
+              "left": {
+                "description": "Left datasource",
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/definitions/dataSource"
+                  }
+                ]
+              },
+              "right": {
+                "description": "Right datasource",
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/definitions/dataSource"
+                  }
+                ]
+              },
+              "rightPrefix": {
+                "type": "string",
+                "description": "String prefix to apply to all columns from the right datasource"
+              },
+              "condition": {
+                "type": "string",
+                "description": "Join condition expression"
+              },
+              "joinType": {
+                "type": "string",
+                "enum": ["INNER", "LEFT", "RIGHT", "FULL"],
+                "description": "Type of join"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "filter": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "selector",
+            "equals",
+            "null",
+            "in",
+            "bound",
+            "interval",
+            "like",
+            "regex",
+            "search",
+            "columnComparison",
+            "expression",
+            "javascript",
+            "spatial",
+            "and",
+            "or",
+            "not",
+            "true",
+            "false"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "selector" } }
+          },
+          "then": {
+            "required": ["dimension", "value"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "value": { "type": ["string", "number", "null"] },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "equals" } }
+          },
+          "then": {
+            "required": ["column", "matchValue"],
+            "properties": {
+              "column": { "type": "string" },
+              "matchValue": {},
+              "matchValueType": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "null" } }
+          },
+          "then": {
+            "required": ["column"],
+            "properties": {
+              "column": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "in" } }
+          },
+          "then": {
+            "required": ["dimension", "values"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "values": { "type": "array" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "bound" } }
+          },
+          "then": {
+            "required": ["dimension"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "lower": { "type": "string" },
+              "upper": { "type": "string" },
+              "lowerStrict": { "type": "boolean" },
+              "upperStrict": { "type": "boolean" },
+              "ordering": { "type": "string" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "like" } }
+          },
+          "then": {
+            "required": ["dimension", "pattern"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "pattern": { "type": "string" },
+              "escape": { "type": "string" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "regex" } }
+          },
+          "then": {
+            "required": ["dimension", "pattern"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "pattern": { "type": "string" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "search" } }
+          },
+          "then": {
+            "required": ["dimension", "query"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "query": { "type": "object" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "columnComparison" } }
+          },
+          "then": {
+            "required": ["dimensions"],
+            "properties": {
+              "dimensions": { "type": "array" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "expression" } }
+          },
+          "then": {
+            "required": ["expression"],
+            "properties": {
+              "expression": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "javascript" } }
+          },
+          "then": {
+            "required": ["dimension", "function"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "function": { "type": "string" },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "interval" } }
+          },
+          "then": {
+            "required": ["dimension", "intervals"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "intervals": { "type": "array", "items": { "type": "string" } },
+              "extractionFn": { "type": "object" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "and" } }
+          },
+          "then": {
+            "required": ["fields"],
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/filter" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "or" } }
+          },
+          "then": {
+            "required": ["fields"],
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/filter" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "not" } }
+          },
+          "then": {
+            "required": ["field"],
+            "properties": {
+              "field": { "$ref": "#/definitions/filter" }
+            }
+          }
+        }
+      ]
+    },
+    "granularityObject": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["duration", "period", "uniform"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "duration" } }
+          },
+          "then": {
+            "required": ["duration"],
+            "properties": {
+              "duration": { "type": "integer", "description": "Duration in milliseconds" },
+              "origin": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "period" } }
+          },
+          "then": {
+            "required": ["period"],
+            "properties": {
+              "period": { "type": "string", "description": "ISO 8601 period string" },
+              "timeZone": { "type": "string" },
+              "origin": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      ]
+    },
+    "virtualColumn": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["expression", "nested-field", "mv-filtered"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the virtual column"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "expression" } }
+          },
+          "then": {
+            "required": ["expression"],
+            "properties": {
+              "expression": { "type": "string" },
+              "outputType": {
+                "type": "string",
+                "enum": [
+                  "LONG",
+                  "FLOAT",
+                  "DOUBLE",
+                  "STRING",
+                  "ARRAY<STRING>",
+                  "ARRAY<LONG>",
+                  "ARRAY<DOUBLE>",
+                  "COMPLEX<json>"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "nested-field" } }
+          },
+          "then": {
+            "required": ["columnName"],
+            "properties": {
+              "columnName": { "type": "string" },
+              "outputName": { "type": "string" },
+              "expectedType": {
+                "type": "string",
+                "enum": ["STRING", "LONG", "FLOAT", "DOUBLE", "COMPLEX<json>"]
+              },
+              "path": { "type": "string" },
+              "pathParts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["field", "arrayElement"]
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": { "type": { "const": "field" } }
+                      },
+                      "then": {
+                        "required": ["field"],
+                        "properties": {
+                          "field": { "type": "string" }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": { "type": { "const": "arrayElement" } }
+                      },
+                      "then": {
+                        "required": ["index"],
+                        "properties": {
+                          "index": { "type": "integer", "minimum": 0 }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "processFromRaw": { "type": "boolean" },
+              "useJqSyntax": { "type": "boolean" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "mv-filtered" } }
+          },
+          "then": {
+            "required": ["delegate", "values", "isAllowList"],
+            "properties": {
+              "delegate": { "type": "string" },
+              "values": { "type": "array", "items": { "type": "string" } },
+              "isAllowList": { "type": "boolean" }
+            }
+          }
+        }
+      ]
+    },
+    "aggregation": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "count",
+            "longSum",
+            "doubleSum",
+            "floatSum",
+            "longMin",
+            "doubleMin",
+            "floatMin",
+            "longMax",
+            "doubleMax",
+            "floatMax",
+            "doubleMean",
+            "doubleFirst",
+            "doubleLast",
+            "floatFirst",
+            "floatLast",
+            "longFirst",
+            "longLast",
+            "stringFirst",
+            "stringLast",
+            "doubleAny",
+            "floatAny",
+            "longAny",
+            "stringAny",
+            "thetaSketch",
+            "HLLSketchBuild",
+            "quantilesDoublesSketch",
+            "hyperUnique",
+            "cardinality",
+            "histogram",
+            "fixedBucketsHistogram",
+            "filtered",
+            "grouping"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "longSum",
+                  "doubleSum",
+                  "floatSum",
+                  "longMin",
+                  "doubleMin",
+                  "floatMin",
+                  "longMax",
+                  "doubleMax",
+                  "floatMax",
+                  "doubleMean"
+                ]
+              }
+            }
+          },
+          "then": {
+            "oneOf": [
+              {
+                "required": ["fieldName"],
+                "properties": {
+                  "fieldName": { "type": "string" }
+                }
+              },
+              {
+                "required": ["expression"],
+                "properties": {
+                  "expression": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "doubleFirst",
+                  "doubleLast",
+                  "floatFirst",
+                  "floatLast",
+                  "longFirst",
+                  "longLast",
+                  "stringFirst",
+                  "stringLast",
+                  "doubleAny",
+                  "floatAny",
+                  "longAny",
+                  "stringAny"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": ["fieldName"],
+            "properties": {
+              "fieldName": { "type": "string" },
+              "timeColumn": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "filtered" } }
+          },
+          "then": {
+            "required": ["filter", "aggregator"],
+            "properties": {
+              "filter": { "$ref": "#/definitions/filter" },
+              "aggregator": { "$ref": "#/definitions/aggregation" }
+            }
+          }
+        }
+      ]
+    },
+    "postAggregation": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "arithmetic",
+            "fieldAccess",
+            "finalizingFieldAccess",
+            "constant",
+            "expression",
+            "doubleGreatest",
+            "doubleLeast",
+            "longGreatest",
+            "longLeast",
+            "hyperUniqueCardinality"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "arithmetic" } }
+          },
+          "then": {
+            "required": ["fn", "fields"],
+            "properties": {
+              "fn": {
+                "type": "string",
+                "enum": ["+", "-", "*", "/", "pow", "quotient"]
+              },
+              "fields": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/postAggregation" }
+              },
+              "ordering": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["fieldAccess", "finalizingFieldAccess"]
+              }
+            }
+          },
+          "then": {
+            "required": ["fieldName"],
+            "properties": {
+              "fieldName": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "constant" } }
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "value": { "type": "number" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "expression" } }
+          },
+          "then": {
+            "required": ["expression"],
+            "properties": {
+              "expression": { "type": "string" },
+              "ordering": { "type": "string" },
+              "outputType": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["doubleGreatest", "doubleLeast", "longGreatest", "longLeast"]
+              }
+            }
+          },
+          "then": {
+            "required": ["fields"],
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/postAggregation" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dimensionSpec": {
+      "type": "object",
+      "required": ["type", "dimension"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["default", "extraction", "listFiltered", "lookup", "prefixFiltered", "regexFiltered"]
+        },
+        "dimension": {
+          "type": "string"
+        },
+        "outputName": {
+          "type": "string"
+        }
+      }
+    },
+    "having": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["greaterThan", "lessThan", "equalTo", "and", "or", "not", "dimSelector", "filter"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["greaterThan", "lessThan", "equalTo"]
+              }
+            }
+          },
+          "then": {
+            "required": ["aggregation", "value"],
+            "properties": {
+              "aggregation": { "type": "string" },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["and", "or"]
+              }
+            }
+          },
+          "then": {
+            "required": ["havingSpecs"],
+            "properties": {
+              "havingSpecs": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/having" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "not" } }
+          },
+          "then": {
+            "required": ["havingSpec"],
+            "properties": {
+              "havingSpec": { "$ref": "#/definitions/having" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "filter" } }
+          },
+          "then": {
+            "required": ["filter"],
+            "properties": {
+              "filter": { "$ref": "#/definitions/filter" }
+            }
+          }
+        }
+      ]
+    },
+    "limitSpec": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["default"]
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of results"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Number of results to skip"
+        },
+        "columns": {
+          "type": "array",
+          "description": "Column ordering specifications"
+        }
+      }
+    },
+    "queryContext": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "description": "Query timeout in milliseconds"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Query priority (higher = more important)"
+        },
+        "queryId": {
+          "type": "string",
+          "description": "Unique identifier for this query"
+        },
+        "useCache": {
+          "type": "boolean",
+          "description": "Whether to use cached results"
+        },
+        "populateCache": {
+          "type": "boolean",
+          "description": "Whether to populate the cache"
+        },
+        "useResultLevelCache": {
+          "type": "boolean",
+          "description": "Whether to use result level cache"
+        },
+        "populateResultLevelCache": {
+          "type": "boolean",
+          "description": "Whether to populate result level cache"
+        },
+        "bySegment": {
+          "type": "boolean",
+          "description": "Return results by segment"
+        },
+        "finalize": {
+          "type": "boolean",
+          "description": "Whether to finalize aggregations"
+        },
+        "maxScatterGatherBytes": {
+          "type": "integer",
+          "description": "Maximum bytes for scatter-gather"
+        },
+        "maxQueuedBytes": {
+          "type": "integer",
+          "description": "Maximum bytes queued per query"
+        },
+        "serializeDateTimeAsLong": {
+          "type": "boolean",
+          "description": "Serialize DateTime as long"
+        },
+        "serializeDateTimeAsLongInner": {
+          "type": "boolean",
+          "description": "Inner DateTime serialization"
+        },
+        "skipEmptyBuckets": {
+          "type": "boolean",
+          "description": "Skip empty time buckets in results"
+        },
+        "grandTotal": {
+          "type": "boolean",
+          "description": "Include grand total row in timeseries results"
+        },
+        "sqlQueryId": {
+          "type": "string",
+          "description": "SQL query ID for native query translation"
+        },
+        "sqlStringifyArrays": {
+          "type": "boolean",
+          "description": "Stringify arrays in SQL results"
+        },
+        "vectorize": {
+          "type": "boolean",
+          "description": "Enable vectorized query execution"
+        },
+        "vectorSize": {
+          "type": "integer",
+          "description": "Vector size for vectorized execution"
+        },
+        "maxSubqueryRows": {
+          "type": "integer",
+          "description": "Maximum rows in subquery results"
+        },
+        "enableParallelMerges": {
+          "type": "boolean",
+          "description": "Enable parallel merge processing"
+        }
+      }
+    }
+  }
+}
