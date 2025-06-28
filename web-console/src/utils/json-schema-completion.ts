@@ -18,7 +18,7 @@
 
 import type { JsonCompletionItem } from './json-completion';
 
-interface JsonSchema {
+export interface JsonSchema {
   type?: string | string[];
   properties?: Record<string, JsonSchema>;
   items?: JsonSchema | JsonSchema[];

@@ -19,12 +19,13 @@
 import type { Ace } from 'ace-builds';
 
 import type { JsonCompletionItem, JsonCompletionRule } from '../utils';
-import { getCompletionsForPath, getHjsonContext } from '../utils';
+import { getCompletionsForPath, getHjsonContext, getSchemaCompletionsForPath } from '../utils';
 
 import { makeDocHtml } from './make-doc-html';
 
 export interface GetHjsonCompletionsOptions {
-  jsonCompletions: JsonCompletionRule[];
+  jsonCompletions?: JsonCompletionRule[];
+  jsonSchema?: any;
   textBefore: string;
   charBeforePrefix: string;
   prefix: string;
@@ -32,6 +33,7 @@ export interface GetHjsonCompletionsOptions {
 
 export function getHjsonCompletions({
   jsonCompletions,
+  jsonSchema,
   textBefore,
   charBeforePrefix,
   prefix,
@@ -52,12 +54,24 @@ export function getHjsonCompletions({
     pathForCompletions = [...hjsonContext.path, hjsonContext.currentKey];
   }
 
-  const completionItems = getCompletionsForPath(
-    jsonCompletions,
-    pathForCompletions,
-    hjsonContext.isEditingKey,
-    hjsonContext.currentObject,
-  );
+  let completionItems: JsonCompletionItem[];
+  if (jsonCompletions) {
+    completionItems = getCompletionsForPath(
+      jsonCompletions,
+      pathForCompletions,
+      hjsonContext.isEditingKey,
+      hjsonContext.currentObject,
+    );
+  } else if (jsonSchema) {
+    completionItems = getSchemaCompletionsForPath(
+      jsonSchema,
+      pathForCompletions,
+      hjsonContext.isEditingKey,
+      hjsonContext.currentObject,
+    );
+  } else {
+    throw new Error('xx');
+  }
 
   // Filter completions based on whether we're editing a key or value
   const filteredCompletions = filterCompletionsByContext(

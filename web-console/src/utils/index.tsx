@@ -30,6 +30,7 @@ export * from './formatter';
 export * from './general';
 export * from './hjson-context';
 export * from './json-completion';
+export * from './json-schema-completion';
 export * from './local-storage-backed-visibility';
 export * from './local-storage-keys';
 export * from './mouse-tooltip/mouse-tooltip';

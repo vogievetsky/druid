@@ -178,6 +178,10 @@ export default env => {
             filename: 'fonts/[name].[ext]',
           },
         },
+        {
+          test: /\.json$/,
+          type: 'json',
+        },
       ],
     },
     performance: {

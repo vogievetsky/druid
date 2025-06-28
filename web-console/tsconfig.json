@@ -16,6 +16,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "removeComments": true,
+    "resolveJsonModule": true,
     "rootDirs": ["lib", "src"],
     "skipLibCheck": true,
     "strict": true,

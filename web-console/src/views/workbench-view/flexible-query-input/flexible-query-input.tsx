@@ -26,9 +26,9 @@ import debounce from 'lodash.debounce';
 import React from 'react';
 import AceEditor from 'react-ace';
 
+import nativeJsonQuerySchema from '../../../../schema/native-json-query-schema.json';
 import { getHjsonCompletions } from '../../../ace-completions/hjson-completions';
 import { getSqlCompletions } from '../../../ace-completions/sql-completions';
-import { NATIVE_JSON_QUERY_COMPLETIONS } from '../../../druid-models';
 import { AppToaster } from '../../../singletons';
 import { AceEditorStateCache } from '../../../singletons/ace-editor-state-cache';
 import type { ColumnMetadata, QuerySlice, RowColumn } from '../../../utils';
@@ -164,7 +164,7 @@ export class FlexibleQueryInput extends React.PureComponent<
             callback(
               null,
               getHjsonCompletions({
-                jsonCompletions: NATIVE_JSON_QUERY_COMPLETIONS,
+                jsonSchema: nativeJsonQuerySchema,
                 textBefore: lines.join('\n'),
                 charBeforePrefix,
                 prefix,
