@@ -504,7 +504,7 @@
             "required": ["query"],
             "properties": {
               "query": {
-                "type": "object",
+                "$ref": "#",
                 "description": "The subquery to use as a datasource"
               }
             }

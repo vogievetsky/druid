@@ -42,9 +42,10 @@ interface JsonSchema {
 }
 
 function resolveRef(schema: JsonSchema, ref: string): JsonSchema | undefined {
-  if (!ref.startsWith('#/')) return undefined;
+  const path = ref.split('/');
+  if (path[0] !== '#') return undefined;
+  path.unshift();
 
-  const path = ref.slice(2).split('/');
   let current: any = schema;
 
   for (const segment of path) {
