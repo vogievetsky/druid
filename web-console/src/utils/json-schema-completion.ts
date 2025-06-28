@@ -43,8 +43,7 @@ export interface JsonSchema {
 
 function resolveRef(schema: JsonSchema, ref: string): JsonSchema | undefined {
   const path = ref.split('/');
-  if (path[0] !== '#') return undefined;
-  path.unshift();
+  if (path.shift() !== '#') return undefined;
 
   let current: any = schema;
 
