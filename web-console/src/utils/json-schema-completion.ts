@@ -60,8 +60,17 @@ function evaluateCondition(condition: JsonSchema, currentObject: any): boolean {
 
   if (condition.properties) {
     for (const [key, propSchema] of Object.entries(condition.properties)) {
-      if (propSchema && typeof propSchema === 'object' && 'const' in propSchema) {
-        if (currentObject[key] !== propSchema.const) return false;
+      if (propSchema && typeof propSchema === 'object') {
+        if ('const' in propSchema) {
+          if (currentObject[key] !== propSchema.const) return false;
+        }
+        if ('enum' in propSchema && propSchema.enum) {
+          if (!propSchema.enum.includes(currentObject[key])) return false;
+        }
+        if ('not' in propSchema && propSchema.not) {
+          // Handle 'not' conditions - the inner condition should be false
+          if (evaluateCondition(propSchema.not, { [key]: currentObject[key] })) return false;
+        }
       }
     }
   }
@@ -312,14 +321,14 @@ export function getSchemaCompletionsForPath(
     }
   }
 
-  // Apply conditional schemas at the current level
-  if (schema.allOf) {
-    for (const subSchema of schema.allOf) {
-      if (subSchema.if && subSchema.then && evaluateCondition(subSchema.if, currentObject)) {
-        const conditionalSchemas = getSchemaAtPath(subSchema.then, path, currentObject);
-        for (const s of conditionalSchemas) {
-          const completions = getCompletionsFromSchema(s, isKey, schema);
-          for (const completion of completions) {
+  // Apply conditional schemas at the final level after path resolution
+  // This handles cases where the target schema itself has conditional logic
+  for (const s of schemas) {
+    if (s.allOf) {
+      for (const subSchema of s.allOf) {
+        if (subSchema.if && subSchema.then && evaluateCondition(subSchema.if, currentObject)) {
+          const conditionalCompletions = getCompletionsFromSchema(subSchema.then, isKey, schema);
+          for (const completion of conditionalCompletions) {
             const key = JSON.stringify(completion.value);
             if (!seen.has(key)) {
               seen.add(key);
