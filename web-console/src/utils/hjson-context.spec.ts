@@ -295,7 +295,7 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'dataSource',
         isEditingComment: false,
-        parsedObject: { queryType: 'scan', interval: 'Hello\nWorld' },
+        parsedObject: { queryType: 'scan', interval: '\n    Hello\n    World\n    ' },
       });
     });
 

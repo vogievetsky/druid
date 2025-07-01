@@ -60,14 +60,14 @@ export function getHjsonCompletions({
       jsonCompletions,
       pathForCompletions,
       hjsonContext.isEditingKey,
-      hjsonContext.currentObject,
+      hjsonContext.parsedObject,
     );
   } else if (jsonSchema) {
     completionItems = getSchemaCompletionsForPath(
       jsonSchema,
       pathForCompletions,
       hjsonContext.isEditingKey,
-      hjsonContext.currentObject,
+      hjsonContext.parsedObject,
     );
   } else {
     throw new Error('xx');
@@ -91,7 +91,7 @@ export function getHjsonCompletions({
  */
 function filterCompletionsByContext(
   completions: JsonCompletionItem[],
-  hjsonContext: { isEditingKey: boolean; currentKey?: string; currentObject: any },
+  hjsonContext: { isEditingKey: boolean; currentKey?: string; parsedObject: any },
   charBeforePrefix: string,
 ): JsonCompletionItem[] {
   const quote = charBeforePrefix === '"';
@@ -100,7 +100,7 @@ function filterCompletionsByContext(
     // We're editing a key - only show property completions
     // Filter out properties that already exist in the current object
     return completions.filter(completion => {
-      return !(completion.value in hjsonContext.currentObject);
+      return !(completion.value in hjsonContext.parsedObject);
     });
   } else {
     // We're editing a value - show value completions
