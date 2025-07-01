@@ -416,6 +416,12 @@ describe('getHjsonContext', () => {
       });
     });
 
+    it('throws error on invalid syntax - missing colon', () => {
+      expect(() => {
+        getHjsonContext('{ "filters": [{ "type" "selector", ');
+      }).toThrow();
+    });
+
     it('handles just whitespace', () => {
       const result = getHjsonContext('   ');
       expect(result).toEqual({
