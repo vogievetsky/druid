@@ -28,7 +28,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {},
       });
     });
 
@@ -39,7 +39,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {},
       });
     });
 
@@ -50,7 +50,7 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: '0',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {},
       });
     });
   });
@@ -63,7 +63,9 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          que: undefined,
+        },
       });
     });
 
@@ -74,7 +76,9 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          que: undefined,
+        },
       });
     });
 
@@ -85,7 +89,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {
+        parsedObject: {
           queryType: 'scan',
         },
       });
@@ -100,7 +104,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'queryType',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          queryType: undefined,
+        },
       });
     });
 
@@ -111,7 +117,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'queryType',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          queryType: 'sc',
+        },
       });
     });
 
@@ -122,7 +130,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'queryType',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          queryType: 'sc',
+        },
       });
     });
   });
@@ -135,7 +145,9 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          query: {},
+        },
       });
     });
 
@@ -146,7 +158,13 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'type',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          query: {
+            dataSource: {
+              type: undefined,
+            },
+          },
+        },
       });
     });
 
@@ -157,7 +175,12 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'queryType',
         isEditingComment: false,
-        currentObject: { dataSource: 'wikipedia' },
+        parsedObject: {
+          query: {
+            dataSource: 'wikipedia',
+            queryType: undefined,
+          },
+        },
       });
     });
   });
@@ -170,7 +193,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: '0',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          dimensions: [],
+        },
       });
     });
 
@@ -181,7 +206,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: '1',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          dimensions: ['page'],
+        },
       });
     });
 
@@ -192,7 +219,13 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'type',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          filters: [
+            {
+              type: undefined,
+            },
+          ],
+        },
       });
     });
 
@@ -203,7 +236,13 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: { type: 'selector' },
+        parsedObject: {
+          filters: [
+            {
+              type: 'selector',
+            },
+          ],
+        },
       });
     });
   });
@@ -223,7 +262,16 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'dimension',
         isEditingComment: false,
-        currentObject: { type: 'default' },
+        parsedObject: {
+          queryType: 'groupBy',
+          dataSource: 'wikipedia',
+          dimensions: [
+            {
+              type: 'default',
+              dimension: undefined,
+            },
+          ],
+        },
       });
     });
 
@@ -247,7 +295,7 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'dataSource',
         isEditingComment: false,
-        currentObject: { queryType: 'scan', interval: 'Hello\nWorld' },
+        parsedObject: { queryType: 'scan', interval: 'Hello\nWorld' },
       });
     });
 
@@ -263,7 +311,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: 'm',
         isEditingComment: false,
-        currentObject: { queryType: 'scan', dataSource: 'wikipedia' },
+        parsedObject: { queryType: 'scan', dataSource: 'wikipedia' },
       });
     });
 
@@ -279,7 +327,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: 'm',
         isEditingComment: false,
-        currentObject: { queryType: 'scan', dataSource: 'wikipedia' },
+        parsedObject: { queryType: 'scan', dataSource: 'wikipedia' },
       });
     });
 
@@ -294,7 +342,14 @@ describe('getHjsonContext', () => {
               t`,
       );
       expect(result).toEqual({
-        currentObject: {},
+        parsedObject: {
+          queryType: 'topN',
+          intervals: '...',
+          dataSource: 'sdsds',
+          filter: {
+            t: undefined,
+          },
+        },
         isEditingComment: false,
         isEditingKey: true,
         path: ['filter'],
@@ -328,7 +383,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {
+        parsedObject: {
           queryType: 'scan',
           dataSource: {
             type: 'restrict',
@@ -357,7 +412,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {},
       });
     });
 
@@ -368,7 +423,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {},
       });
     });
 
@@ -379,7 +434,9 @@ describe('getHjsonContext', () => {
         isEditingKey: false,
         currentKey: 'queryType',
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          queryType: 'scan',
+        },
       });
     });
 
@@ -393,7 +450,9 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: false,
-        currentObject: {},
+        parsedObject: {
+          query: undefined,
+        },
       });
     });
   });
@@ -406,7 +465,7 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: true,
-        currentObject: { queryType: 'scan' },
+        parsedObject: { queryType: 'scan' },
       });
     });
 
@@ -417,21 +476,25 @@ describe('getHjsonContext', () => {
         isEditingKey: true,
         currentKey: undefined,
         isEditingComment: true,
-        currentObject: { queryType: 'scan' },
+        parsedObject: { queryType: 'scan' },
       });
     });
   });
 
-  describe('currentObject property', () => {
+  describe('parsedObject property', () => {
     it('returns empty object placeholder for now', () => {
       const result = getHjsonContext('{ "queryType": "timeseries", "granularity": ');
-      expect(result.currentObject).toEqual({ queryType: 'timeseries' });
+      expect(result.parsedObject).toEqual({ queryType: 'timeseries', granularity: undefined });
     });
 
-    it('includes currentObject in all contexts', () => {
+    it('includes parsedObject in all contexts', () => {
       const result = getHjsonContext('{ "filter": { "type": ');
-      expect(result).toHaveProperty('currentObject');
-      expect(result.currentObject).toEqual({});
+      expect(result).toHaveProperty('parsedObject');
+      expect(result.parsedObject).toEqual({
+        filter: {
+          type: undefined,
+        },
+      });
     });
   });
 });
