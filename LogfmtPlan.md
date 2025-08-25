@@ -156,10 +156,10 @@ public class LogfmtOperatorConversions {
    - ✅ Write `LogfmtParserTest` with all test cases (26 test cases)
    - ✅ Ensure parser handles all edge cases correctly
 
-2. **Phase 2: Expression Layer**
-   - Implement `LogfmtExpressions` with both macros
-   - Write `LogfmtExpressionsTest`
-   - Register in `ExpressionModule`
+2. **Phase 2: Expression Layer** ✅ COMPLETE
+   - ✅ Implement `LogfmtExpressions` with both macros (ParseLogfmtExprMacro, TryParseLogfmtExprMacro)
+   - ✅ Write `LogfmtExpressionsTest` (19 test cases)
+   - ✅ Register in `ExpressionModule`
 
 3. **Phase 3: SQL Layer**
    - Implement `LogfmtOperatorConversions`
@@ -195,8 +195,8 @@ public class LogfmtOperatorConversions {
 ## Success Criteria
 
 - [x] All JavaScript test cases pass when converted to Java (Phase 1 complete)
-- [ ] Functions behave identically to PARSE_JSON/TRY_PARSE_JSON except for format
+- [x] Functions behave identically to PARSE_JSON/TRY_PARSE_JSON except for format (Phase 2 complete)
 - [ ] SQL queries work correctly with logfmt data
 - [ ] Documentation is complete and includes examples
-- [x] Code follows Druid coding standards and patterns (Phase 1 passes all checks)
-- [x] All tests pass including checkstyle, spotbugs, and forbidden APIs (Phase 1 complete)
+- [x] Code follows Druid coding standards and patterns (Phase 1 & 2 pass all checks)
+- [x] All tests pass including checkstyle, spotbugs, and forbidden APIs (Phase 1 & 2 complete)

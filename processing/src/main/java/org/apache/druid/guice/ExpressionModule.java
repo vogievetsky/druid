@@ -34,6 +34,7 @@ import org.apache.druid.query.expression.IPv4AddressParseExprMacro;
 import org.apache.druid.query.expression.IPv4AddressStringifyExprMacro;
 import org.apache.druid.query.expression.IPv6AddressMatchExprMacro;
 import org.apache.druid.query.expression.LikeExprMacro;
+import org.apache.druid.query.expression.LogfmtExpressions;
 import org.apache.druid.query.expression.NestedDataExpressions;
 import org.apache.druid.query.expression.RegexpExtractExprMacro;
 import org.apache.druid.query.expression.RegexpLikeExprMacro;
@@ -90,6 +91,8 @@ public class ExpressionModule implements Module
                    .add(NestedDataExpressions.ToJsonStringExprMacro.class)
                    .add(NestedDataExpressions.ParseJsonExprMacro.class)
                    .add(NestedDataExpressions.TryParseJsonExprMacro.class)
+                   .add(LogfmtExpressions.ParseLogfmtExprMacro.class)
+                   .add(LogfmtExpressions.TryParseLogfmtExprMacro.class)
                    .build();
 
   @Override
