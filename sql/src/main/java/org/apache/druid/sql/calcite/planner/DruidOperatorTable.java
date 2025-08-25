@@ -95,6 +95,7 @@ import org.apache.druid.sql.calcite.expression.builtin.LTrimOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LeastOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LeftOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LikeOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.LogfmtOperatorConversions;
 import org.apache.druid.sql.calcite.expression.builtin.MillisToTimestampOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringOperatorConversions;
 import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringToArrayOperatorConversion;
@@ -359,6 +360,8 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .add(new NestedDataOperatorConversions.ToJsonStringOperatorConversion())
                    .add(new NestedDataOperatorConversions.ParseJsonOperatorConversion())
                    .add(new NestedDataOperatorConversions.TryParseJsonOperatorConversion())
+                   .add(new LogfmtOperatorConversions.ParseLogfmtOperatorConversion())
+                   .add(new LogfmtOperatorConversions.TryParseLogfmtOperatorConversion())
                    .build();
 
   public static final DirectOperatorConversion ROUND_OPERATOR_CONVERSION = new DirectOperatorConversion(SqlStdOperatorTable.ROUND, "round");

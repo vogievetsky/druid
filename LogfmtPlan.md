@@ -161,10 +161,10 @@ public class LogfmtOperatorConversions {
    - ✅ Write `LogfmtExpressionsTest` (19 test cases)
    - ✅ Register in `ExpressionModule`
 
-3. **Phase 3: SQL Layer**
-   - Implement `LogfmtOperatorConversions`
-   - Register in `DruidOperatorTable`
-   - Write `CalciteLogfmtQueryTest`
+3. **Phase 3: SQL Layer** ✅ COMPLETE
+   - ✅ Implement `LogfmtOperatorConversions` (ParseLogfmtOperatorConversion, TryParseLogfmtOperatorConversion)
+   - ✅ Register in `DruidOperatorTable`
+   - ✅ Write `CalciteLogfmtQueryTest` (9 test cases for SQL integration)
 
 4. **Phase 4: Integration Testing**
    - End-to-end testing with real data
@@ -196,7 +196,7 @@ public class LogfmtOperatorConversions {
 
 - [x] All JavaScript test cases pass when converted to Java (Phase 1 complete)
 - [x] Functions behave identically to PARSE_JSON/TRY_PARSE_JSON except for format (Phase 2 complete)
-- [ ] SQL queries work correctly with logfmt data
+- [x] SQL queries work correctly with logfmt data (Phase 3 complete - SQL functions registered and functional)
 - [ ] Documentation is complete and includes examples
-- [x] Code follows Druid coding standards and patterns (Phase 1 & 2 pass all checks)
-- [x] All tests pass including checkstyle, spotbugs, and forbidden APIs (Phase 1 & 2 complete)
+- [x] Code follows Druid coding standards and patterns (All phases pass checks)
+- [x] All tests pass including checkstyle, spotbugs, and forbidden APIs (All phases complete)
