@@ -7124,16 +7124,6 @@ license_file_path: licenses/bin/react.MIT
 
 ---
 
-name: "regenerator-runtime"
-license_category: binary
-module: web-console
-license_name: MIT License
-copyright: Ben Newman
-version: 0.13.11
-license_file_path: licenses/bin/regenerator-runtime.MIT
-
----
-
 name: "resolve-from"
 license_category: binary
 module: web-console
