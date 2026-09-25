@@ -5796,7 +5796,7 @@ license_category: binary
 module: web-console
 license_name: MIT License
 copyright: Alex Bol
-version: 1.1.4
+version: 2.0.3
 license_file_path: licenses/bin/@flatten-js-interval-tree.MIT
 
 ---
@@ -6103,7 +6103,7 @@ license_category: binary
 module: web-console
 license_name: MIT License
 copyright: sudodoki
-version: 3.3.3
+version: 4.0.2
 license_file_path: licenses/bin/copy-to-clipboard.MIT
 
 ---
@@ -7264,16 +7264,6 @@ license_file_path: licenses/bin/tiny-warning.MIT
 
 ---
 
-name: "toggle-selection"
-license_category: binary
-module: web-console
-license_name: MIT License
-copyright: sudodoki
-version: 1.0.6
-license_file_path: licenses/bin/toggle-selection.MIT
-
----
-
 name: "tslib"
 license_category: binary
 module: web-console
@@ -7319,7 +7309,7 @@ license_category: binary
 module: web-console
 license_name: MIT License
 copyright: Robert Kieffer and other contributors
-version: 11.1.1
+version: 14.0.2
 license_file_path: licenses/bin/uuid.MIT
 
 ---
@@ -7369,7 +7359,7 @@ license_category: binary
 module: web-console
 license_name: MIT License
 copyright: Paul Henschel
-version: 4.5.7
+version: 5.0.15
 license_file_path: licenses/bin/zustand.MIT
 # Web console modules end
 

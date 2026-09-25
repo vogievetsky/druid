@@ -20,7 +20,6 @@ import { Button, Icon, Intent, Menu, MenuDivider, MenuItem, Popover } from '@blu
 import type { IconName } from '@blueprintjs/icons';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
 import { T } from 'druid-query-toolkit';
 import React, { useState } from 'react';
 import { useStore } from 'zustand';
@@ -37,6 +36,7 @@ import { cancelTaskExecution, getTaskExecution } from '../../../helpers';
 import { useClock, useInterval, useQueryManager } from '../../../hooks';
 import { AppToaster } from '../../../singletons';
 import {
+  copyToClipboard,
   downloadQueryDetailArchive,
   formatDuration,
   prettyFormatIsoDate,
@@ -173,7 +173,7 @@ LIMIT 100`,
                   icon={IconNames.DUPLICATE}
                   text="Copy ID"
                   onClick={() => {
-                    copy(w.taskId, { format: 'text/plain' });
+                    copyToClipboard(w.taskId);
                     AppToaster.show({
                       message: `${w.taskId} copied to clipboard`,
                       intent: Intent.SUCCESS,

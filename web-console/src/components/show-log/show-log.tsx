@@ -17,13 +17,12 @@
  */
 
 import { AnchorButton, Button, ButtonGroup, Classes, Intent, Switch } from '@blueprintjs/core';
-import copy from 'copy-to-clipboard';
 import * as JSONBig from 'json-bigint-native';
 import React from 'react';
 
 import { Loader } from '../../components';
 import { Api, AppToaster, UrlBaser } from '../../singletons';
-import { QueryManager, QueryState } from '../../utils';
+import { copyToClipboard, QueryManager, QueryState } from '../../utils';
 
 import './show-log.scss';
 
@@ -175,7 +174,7 @@ export class ShowLog extends React.PureComponent<ShowLogProps, ShowLogState> {
               text="Copy"
               minimal
               onClick={() => {
-                copy(logState.data || '', { format: 'text/plain' });
+                copyToClipboard(logState.data || '');
                 AppToaster.show({
                   message: 'Log copied to clipboard',
                   intent: Intent.SUCCESS,

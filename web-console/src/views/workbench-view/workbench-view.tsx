@@ -27,7 +27,6 @@ import {
 } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
 import type { SqlQuery } from 'druid-query-toolkit';
 import { SqlExpression } from 'druid-query-toolkit';
 import React from 'react';
@@ -58,6 +57,7 @@ import { WorkbenchRunningPromises } from '../../singletons/workbench-running-pro
 import type { ColumnMetadata } from '../../utils';
 import {
   assemble,
+  copyToClipboard,
   deepSet,
   generate8HexId,
   localStorageGet,
@@ -617,7 +617,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
                         icon={IconNames.CLIPBOARD}
                         text="Copy tab"
                         onClick={() => {
-                          copy(currentTabEntry.query.toString(), { format: 'text/plain' });
+                          copyToClipboard(currentTabEntry.query.toString());
                           AppToaster.show({
                             message: `Tab '${currentTabEntry.tabName}' copied to clipboard.`,
                             intent: Intent.SUCCESS,

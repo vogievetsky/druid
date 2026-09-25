@@ -27,12 +27,12 @@ import {
 } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
 import * as JSONBig from 'json-bigint-native';
 import React, { useMemo, useState } from 'react';
 import AceEditor from 'react-ace';
 
 import { AppToaster } from '../../singletons';
+import { copyToClipboard } from '../../utils';
 
 import './show-value-dialog.scss';
 
@@ -56,7 +56,7 @@ export const ShowValueDialog = React.memo(function ShowValueDialog(props: ShowVa
   const hasParsed = typeof parsed !== 'undefined';
 
   function handleCopy() {
-    copy(str, { format: 'text/plain' });
+    copyToClipboard(str);
     AppToaster.show({
       message: 'Value copied to clipboard',
       intent: Intent.SUCCESS,

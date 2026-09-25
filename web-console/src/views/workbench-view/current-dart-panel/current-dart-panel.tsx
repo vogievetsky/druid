@@ -19,7 +19,6 @@
 import { Button, Icon, Intent, Menu, MenuDivider, MenuItem, Popover } from '@blueprintjs/core';
 import { type IconName, IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
 import React, { useState } from 'react';
 import { useStore } from 'zustand';
 
@@ -27,7 +26,7 @@ import { Loader } from '../../../components';
 import { compareForDisplay, type DartQueryEntry } from '../../../druid-models';
 import { useClock, useInterval, useQueryManager } from '../../../hooks';
 import { Api, AppToaster } from '../../../singletons';
-import { formatDuration, prettyFormatIsoDate } from '../../../utils';
+import { copyToClipboard, formatDuration, prettyFormatIsoDate } from '../../../utils';
 import { CancelQueryDialog } from '../cancel-query-dialog/cancel-query-dialog';
 import { getMsqDartVersion, WORK_STATE_STORE } from '../work-state-store';
 
@@ -101,7 +100,7 @@ export const CurrentDartPanel = React.memo(function CurrentViberPanel(
                   icon={IconNames.DUPLICATE}
                   text="Copy SQL ID"
                   onClick={() => {
-                    copy(w.sqlQueryId, { format: 'text/plain' });
+                    copyToClipboard(w.sqlQueryId);
                     AppToaster.show({
                       message: `${w.sqlQueryId} copied to clipboard`,
                       intent: Intent.SUCCESS,
@@ -112,7 +111,7 @@ export const CurrentDartPanel = React.memo(function CurrentViberPanel(
                   icon={IconNames.DUPLICATE}
                   text="Copy Dart ID"
                   onClick={() => {
-                    copy(w.dartQueryId, { format: 'text/plain' });
+                    copyToClipboard(w.dartQueryId);
                     AppToaster.show({
                       message: `${w.dartQueryId} copied to clipboard`,
                       intent: Intent.SUCCESS,
@@ -123,7 +122,7 @@ export const CurrentDartPanel = React.memo(function CurrentViberPanel(
                   icon={IconNames.DUPLICATE}
                   text="Copy Identity"
                   onClick={() => {
-                    copy(w.identity, { format: 'text/plain' });
+                    copyToClipboard(w.identity);
                     AppToaster.show({
                       message: `${w.identity} copied to clipboard`,
                       intent: Intent.SUCCESS,

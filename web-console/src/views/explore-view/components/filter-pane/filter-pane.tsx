@@ -20,7 +20,6 @@ import { Button, Popover } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import type { Timezone } from 'chronoshift';
 import classNames from 'classnames';
-import { isDate } from 'date-fns';
 import type {
   Column,
   FilterPattern,
@@ -84,7 +83,11 @@ export const FilterPane = forwardRef(function FilterPane(props: FilterPaneProps,
     processQuery: async (query, signal) => {
       const boundsData = await runSqlQuery(query, signal);
       const startEndRecord = boundsData.toObjectArray()[0];
-      if (!startEndRecord || !isDate(startEndRecord.start) || !isDate(startEndRecord.end)) {
+      if (
+        !startEndRecord ||
+        !(startEndRecord.start instanceof Date) ||
+        !(startEndRecord.end instanceof Date)
+      ) {
         throw new Error('Unexpected result');
       }
       return [startEndRecord.start, startEndRecord.end];

@@ -22,7 +22,6 @@ import { Button, Intent, Menu, MenuDivider, MenuItem } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import type { Timezone } from 'chronoshift';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
 import type { Column, QueryResult, SqlExpression } from 'druid-query-toolkit';
 import { QueryRunner, SqlLiteral, SqlQuery } from 'druid-query-toolkit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -32,7 +31,7 @@ import { ShowValueDialog } from '../../dialogs/show-value-dialog/show-value-dial
 import type { Capabilities } from '../../helpers';
 import { useHashAndLocalStorageHybridState, useQueryManager } from '../../hooks';
 import { Api, AppToaster } from '../../singletons';
-import { DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
+import { copyToClipboard, DruidError, LocalStorageKeys, queryDruidSql } from '../../utils';
 
 import {
   DroppableContainer,
@@ -256,7 +255,7 @@ export const ExploreView = React.memo(function ExploreView({ capabilities }: Exp
               text="Copy last query"
               disabled={!QUERY_LOG.length()}
               onClick={() => {
-                copy(QUERY_LOG.getLastQuery()!, { format: 'text/plain' });
+                copyToClipboard(QUERY_LOG.getLastQuery()!);
                 AppToaster.show({
                   message: `Copied query to clipboard`,
                   intent: Intent.SUCCESS,

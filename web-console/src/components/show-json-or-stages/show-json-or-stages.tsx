@@ -17,7 +17,6 @@
  */
 
 import { Button, ButtonGroup, Intent } from '@blueprintjs/core';
-import copy from 'copy-to-clipboard';
 import * as JSONBig from 'json-bigint-native';
 import React from 'react';
 import AceEditor from 'react-ace';
@@ -25,7 +24,7 @@ import AceEditor from 'react-ace';
 import { Execution } from '../../druid-models';
 import { useQueryManager } from '../../hooks';
 import { Api, AppToaster, UrlBaser } from '../../singletons';
-import { downloadFile } from '../../utils';
+import { copyToClipboard, downloadFile } from '../../utils';
 import { ExecutionStagesPane } from '../../views/workbench-view/execution-stages-pane/execution-stages-pane';
 import { Loader } from '../loader/loader';
 
@@ -87,7 +86,7 @@ export const ShowJsonOrStages = React.memo(function ShowJsonOrStages(props: Show
             minimal
             disabled={jsonState.loading}
             onClick={() => {
-              copy(jsonValue, { format: 'text/plain' });
+              copyToClipboard(jsonValue);
               AppToaster.show({
                 message: 'JSON value copied to clipboard',
                 intent: Intent.SUCCESS,
