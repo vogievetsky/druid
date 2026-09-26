@@ -10,49 +10,49 @@ exports[`TasksView matches snapshot 1`] = `
     <ForwardRef>
       Group by
     </ForwardRef>
-    <Blueprint5.ButtonGroup>
-      <Blueprint5.Button
+    <Blueprint6.ButtonGroup>
+      <Blueprint6.Button
         active={true}
         onClick={[Function]}
       >
         None
-      </Blueprint5.Button>
-      <Blueprint5.Button
+      </Blueprint6.Button>
+      <Blueprint6.Button
         active={false}
         onClick={[Function]}
       >
         Group ID
-      </Blueprint5.Button>
-      <Blueprint5.Button
+      </Blueprint6.Button>
+      <Blueprint6.Button
         active={false}
         onClick={[Function]}
       >
         Type
-      </Blueprint5.Button>
-      <Blueprint5.Button
+      </Blueprint6.Button>
+      <Blueprint6.Button
         active={false}
         onClick={[Function]}
       >
         Datasource
-      </Blueprint5.Button>
-      <Blueprint5.Button
+      </Blueprint6.Button>
+      <Blueprint6.Button
         active={false}
         onClick={[Function]}
       >
         Status
-      </Blueprint5.Button>
-    </Blueprint5.ButtonGroup>
+      </Blueprint6.Button>
+    </Blueprint6.ButtonGroup>
     <Memo(RefreshButton)
       localStorageKey="task-refresh-rate"
       onRefresh={[Function]}
     />
     <Memo(MoreButton)>
-      <Blueprint5.MenuItem
+      <Blueprint6.MenuItem
         icon="application"
         onClick={[Function]}
         text="View SQL query for table"
       />
-      <Blueprint5.MenuItem
+      <Blueprint6.MenuItem
         icon="manually-entered-data"
         onClick={[Function]}
         text="Submit JSON task"

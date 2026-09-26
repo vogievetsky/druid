@@ -11,17 +11,17 @@ exports[`SupervisorsView matches snapshot 1`] = `
       localStorageKey="supervisors-refresh-rate"
       onRefresh={[Function]}
     />
-    <Blueprint5.Popover
+    <Blueprint6.Popover
       boundary="clippingParents"
       captureDismiss={false}
       content={
-        <Blueprint5.Menu>
-          <Blueprint5.MenuItem
+        <Blueprint6.Menu>
+          <Blueprint6.MenuItem
             icon="manually-entered-data"
             onClick={[Function]}
             text="Submit JSON supervisor"
           />
-        </Blueprint5.Menu>
+        </Blueprint6.Menu>
       }
       defaultIsOpen={false}
       disabled={false}
@@ -41,30 +41,30 @@ exports[`SupervisorsView matches snapshot 1`] = `
       transitionDuration={300}
       usePortal={true}
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         icon="plus"
         text="Create"
       />
-    </Blueprint5.Popover>
+    </Blueprint6.Popover>
     <React.Fragment>
       <Memo(MoreButton)>
-        <Blueprint5.MenuItem
+        <Blueprint6.MenuItem
           disabled={true}
           icon="application"
           onClick={[Function]}
           text="View SQL query for table"
         />
-        <Blueprint5.MenuItem
+        <Blueprint6.MenuItem
           icon="play"
           onClick={[Function]}
           text="Resume all supervisors"
         />
-        <Blueprint5.MenuItem
+        <Blueprint6.MenuItem
           icon="pause"
           onClick={[Function]}
           text="Suspend all supervisors"
         />
-        <Blueprint5.MenuItem
+        <Blueprint6.MenuItem
           icon="cross"
           intent="danger"
           onClick={[Function]}

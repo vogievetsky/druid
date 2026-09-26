@@ -16,7 +16,7 @@ exports[`ExecutionProgressBarPane matches snapshot 1`] = `
       </span>
     </React.Fragment>
   </ForwardRef>
-  <Blueprint5.ProgressBar
+  <Blueprint6.ProgressBar
     className="overall"
     intent="primary"
   />

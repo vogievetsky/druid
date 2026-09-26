@@ -22,8 +22,9 @@
 @import './blueprint-overrides';
 @import '@blueprintjs/core/src/blueprint';
 @import '@blueprintjs/datetime/src/blueprint-datetime';
-@import '@blueprintjs/datetime2/src/blueprint-datetime2';
 @import '@blueprintjs/select/src/blueprint-select';
+@import './blueprint-overrides/design-tokens';
+@import './blueprint-overrides/blueprint5-look';
 @import './react-table/react-table-base-styles';
 @import './react-table/react-table-extra';
 

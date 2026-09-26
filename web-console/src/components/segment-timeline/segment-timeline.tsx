@@ -27,7 +27,7 @@ import {
   ResizeSensor,
 } from '@blueprintjs/core';
 import type { NonNullDateRange } from '@blueprintjs/datetime';
-import { DateRangePicker3 } from '@blueprintjs/datetime2';
+import { DateRangePicker } from '@blueprintjs/datetime';
 import { IconNames } from '@blueprintjs/icons';
 import { Select } from '@blueprintjs/select';
 import { day, Duration, Timezone } from 'chronoshift';
@@ -308,7 +308,7 @@ export const SegmentTimeline = function SegmentTimeline(props: SegmentTimelinePr
             isOpen={showCustomDatePicker}
             onInteraction={setShowCustomDatePicker}
             content={
-              <DateRangePicker3
+              <DateRangePicker
                 defaultValue={utcToLocalDateRange(
                   effectiveDateRange || getDateRange(DEFAULT_SHOWN_DURATION),
                 )}

@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`ExecutionSubmitDialog matches snapshot 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   backdropProps={
     {
       "onDragLeave": [Function],
@@ -16,7 +16,7 @@ exports[`ExecutionSubmitDialog matches snapshot 1`] = `
   title="Load query detail archive"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
     <p>
       You can load query detail archive files from other Druid clusters to render the query detail here.
@@ -29,10 +29,10 @@ exports[`ExecutionSubmitDialog matches snapshot 1`] = `
       </ForwardRef>
        panel in the query view.
     </p>
-    <Blueprint5.FormGroup
+    <Blueprint6.FormGroup
       label="Select query detail archive file"
     >
-      <Blueprint5.FileInput
+      <Blueprint6.FileInput
         fill={true}
         hasSelection={false}
         inputProps={
@@ -43,22 +43,22 @@ exports[`ExecutionSubmitDialog matches snapshot 1`] = `
         onInputChange={[Function]}
         text="Choose file..."
       />
-    </Blueprint5.FormGroup>
+    </Blueprint6.FormGroup>
     <p>
       Alternatively, drag a file directly onto this dialog.
     </p>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={true}
         intent="primary"
         onClick={[Function]}
@@ -66,5 +66,5 @@ exports[`ExecutionSubmitDialog matches snapshot 1`] = `
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;

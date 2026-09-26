@@ -184,8 +184,7 @@ export default env => {
                     // process substitutes these 'svg-icon' functions with actual icons but we don't
                     // have access to them at this point. None of the components that use svg icons
                     // via CSS are themselves being used by the web console, so we can safely omit the icons.
-                    //
-                    // TODO: Re-evaluate after upgrading to Blueprint v6
+                    // Blueprint v6 still uses them in the same places (breadcrumbs and the checkbox indicator).
                     'svg-icon($_icon, $_path)': () => new sass.SassString('transparent'),
                   },
                 },

@@ -4,7 +4,7 @@ exports[`ColumnTree matches snapshot 1`] = `
 <div
   className="column-tree"
 >
-  <Blueprint5.HTMLSelect
+  <Blueprint6.HTMLSelect
     className="schema-selector"
     fill={true}
     large={true}
@@ -22,39 +22,39 @@ exports[`ColumnTree matches snapshot 1`] = `
     >
       sys
     </option>
-  </Blueprint5.HTMLSelect>
-  <Blueprint5.InputGroup
+  </Blueprint6.HTMLSelect>
+  <Blueprint6.InputGroup
     className="search-box"
     onChange={[Function]}
     placeholder="Search"
     rightElement={
-      <Blueprint5.ButtonGroup
+      <Blueprint6.ButtonGroup
         minimal={true}
       >
-        <Blueprint5.Popover
+        <Blueprint6.Popover
           boundary="clippingParents"
           captureDismiss={false}
           content={
-            <Blueprint5.Menu>
-              <Blueprint5.MenuDivider
+            <Blueprint6.Menu>
+              <Blueprint6.MenuDivider
                 title="Search in"
               />
-              <Blueprint5.MenuItem
+              <Blueprint6.MenuItem
                 icon="tick"
                 onClick={[Function]}
                 text="Tables and columns"
               />
-              <Blueprint5.MenuItem
+              <Blueprint6.MenuItem
                 icon="blank"
                 onClick={[Function]}
                 text="Tables only"
               />
-              <Blueprint5.MenuItem
+              <Blueprint6.MenuItem
                 icon="blank"
                 onClick={[Function]}
                 text="Columns only"
               />
-            </Blueprint5.Menu>
+            </Blueprint6.Menu>
           }
           defaultIsOpen={false}
           disabled={false}
@@ -74,33 +74,33 @@ exports[`ColumnTree matches snapshot 1`] = `
           transitionDuration={300}
           usePortal={true}
         >
-          <Blueprint5.Button
+          <Blueprint6.Button
             data-tooltip="Search settings"
             icon="settings"
           />
-        </Blueprint5.Popover>
-      </Blueprint5.ButtonGroup>
+        </Blueprint6.Popover>
+      </Blueprint6.ButtonGroup>
     }
     value=""
   />
   <div
     className="tree-container"
   >
-    <Blueprint5.Tree
+    <Blueprint6.Tree
       contents={
         [
           {
             "childNodes": [
               {
-                "icon": <Blueprint5.Icon
+                "icon": <Blueprint6.Icon
                   aria-hidden={true}
-                  className="bp5-tree-node-icon"
+                  className="bp6-tree-node-icon"
                   data-tooltip="TIMESTAMP"
                   icon="time"
                   tabIndex={-1}
                 />,
                 "id": "__time",
-                "label": <Blueprint5.Popover
+                "label": <Blueprint6.Popover
                   autoFocus={false}
                   boundary="clippingParents"
                   captureDismiss={false}
@@ -128,18 +128,18 @@ exports[`ColumnTree matches snapshot 1`] = `
                   usePortal={true}
                 >
                   __time
-                </Blueprint5.Popover>,
+                </Blueprint6.Popover>,
               },
               {
-                "icon": <Blueprint5.Icon
+                "icon": <Blueprint6.Icon
                   aria-hidden={true}
-                  className="bp5-tree-node-icon"
+                  className="bp6-tree-node-icon"
                   data-tooltip="BIGINT"
                   icon="numerical"
                   tabIndex={-1}
                 />,
                 "id": "added",
-                "label": <Blueprint5.Popover
+                "label": <Blueprint6.Popover
                   autoFocus={false}
                   boundary="clippingParents"
                   captureDismiss={false}
@@ -167,18 +167,18 @@ exports[`ColumnTree matches snapshot 1`] = `
                   usePortal={true}
                 >
                   added
-                </Blueprint5.Popover>,
+                </Blueprint6.Popover>,
               },
               {
-                "icon": <Blueprint5.Icon
+                "icon": <Blueprint6.Icon
                   aria-hidden={true}
-                  className="bp5-tree-node-icon"
+                  className="bp6-tree-node-icon"
                   data-tooltip="FLOAT"
                   icon="floating-point"
                   tabIndex={-1}
                 />,
                 "id": "addedBy10",
-                "label": <Blueprint5.Popover
+                "label": <Blueprint6.Popover
                   autoFocus={false}
                   boundary="clippingParents"
                   captureDismiss={false}
@@ -206,14 +206,14 @@ exports[`ColumnTree matches snapshot 1`] = `
                   usePortal={true}
                 >
                   addedBy10
-                </Blueprint5.Popover>,
+                </Blueprint6.Popover>,
               },
             ],
             "className": undefined,
             "icon": "th",
             "id": "wikipedia",
             "isExpanded": true,
-            "label": <Blueprint5.Popover
+            "label": <Blueprint6.Popover
               boundary="clippingParents"
               captureDismiss={false}
               content={
@@ -240,7 +240,7 @@ exports[`ColumnTree matches snapshot 1`] = `
               usePortal={true}
             >
               wikipedia
-            </Blueprint5.Popover>,
+            </Blueprint6.Popover>,
           },
         ]
       }

@@ -1,9 +1,8 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`LookupEditDialog matches snapshot 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   canEscapeKeyClose={false}
-  canOutsideClickClose={true}
   className="lookup-edit-dialog"
   isOpen={true}
   onClose={[Function]}
@@ -12,21 +11,21 @@ exports[`LookupEditDialog matches snapshot 1`] = `
   <div
     className="content"
   >
-    <Blueprint5.FormGroup
+    <Blueprint6.FormGroup
       label="Name"
     >
-      <Blueprint5.InputGroup
+      <Blueprint6.InputGroup
         disabled={false}
         intent="none"
         onChange={[Function]}
         placeholder="Enter the lookup name"
         value="test"
       />
-    </Blueprint5.FormGroup>
-    <Blueprint5.FormGroup
+    </Blueprint6.FormGroup>
+    <Blueprint6.FormGroup
       label="Tier"
     >
-      <Blueprint5.HTMLSelect
+      <Blueprint6.HTMLSelect
         onChange={[Function]}
         value="test"
       >
@@ -40,16 +39,16 @@ exports[`LookupEditDialog matches snapshot 1`] = `
         >
           alt-tier
         </option>
-      </Blueprint5.HTMLSelect>
-    </Blueprint5.FormGroup>
-    <Blueprint5.FormGroup
+      </Blueprint6.HTMLSelect>
+    </Blueprint6.FormGroup>
+    <Blueprint6.FormGroup
       label="Version"
     >
-      <Blueprint5.InputGroup
+      <Blueprint6.InputGroup
         onChange={[Function]}
         placeholder="Enter the lookup version"
         rightElement={
-          <Blueprint5.Button
+          <Blueprint6.Button
             minimal={true}
             onClick={[Function]}
             text="Set to current ISO time"
@@ -57,7 +56,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
         }
         value="test"
       />
-    </Blueprint5.FormGroup>
+    </Blueprint6.FormGroup>
     <Memo(FormJsonSelector)
       onChange={[Function]}
       tab="form"
@@ -462,16 +461,16 @@ exports[`LookupEditDialog matches snapshot 1`] = `
     />
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={false}
         intent="primary"
         onClick={[Function]}
@@ -479,5 +478,5 @@ exports[`LookupEditDialog matches snapshot 1`] = `
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;

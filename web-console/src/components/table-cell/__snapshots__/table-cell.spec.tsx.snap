@@ -31,7 +31,7 @@ exports[`TableCell matches snapshot array long 1`] = `
   7, 98, 99]
   <span
     aria-hidden="true"
-    class="bp5-icon bp5-icon-more action-icon"
+    class="bp6-icon bp6-icon-more action-icon"
   >
     <svg
       data-icon="more"
@@ -41,7 +41,7 @@ exports[`TableCell matches snapshot array long 1`] = `
       width="16"
     >
       <path
-        d="M2 6.03a2 2 0 100 4 2 2 0 100-4zM14 6.03a2 2 0 100 4 2 2 0 100-4zM8 6.03a2 2 0 100 4 2 2 0 100-4z"
+        d="M2 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4m6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4m6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4"
         fill-rule="evenodd"
       />
     </svg>
@@ -110,7 +110,7 @@ exports[`TableCell matches snapshot truncate 1`] = `
   test_test_
   <span
     aria-hidden="true"
-    class="bp5-icon bp5-icon-more action-icon"
+    class="bp6-icon bp6-icon-more action-icon"
   >
     <svg
       data-icon="more"
@@ -120,7 +120,7 @@ exports[`TableCell matches snapshot truncate 1`] = `
       width="16"
     >
       <path
-        d="M2 6.03a2 2 0 100 4 2 2 0 100-4zM14 6.03a2 2 0 100 4 2 2 0 100-4zM8 6.03a2 2 0 100 4 2 2 0 100-4z"
+        d="M2 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4m6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4m6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4"
         fill-rule="evenodd"
       />
     </svg>

@@ -5661,16 +5661,7 @@ license_category: binary
 module: web-console
 license_name: Apache License version 2.0
 copyright: Palantir Technologies
-version: 5.19.1
-
----
-
-name: "@blueprintjs/datetime2"
-license_category: binary
-module: web-console
-license_name: Apache License version 2.0
-copyright: Palantir Technologies
-version: 2.3.33
+version: 6.20.0
 
 ---
 
@@ -5679,7 +5670,7 @@ license_category: binary
 module: web-console
 license_name: Apache License version 2.0
 copyright: Palantir Technologies
-version: 5.3.33
+version: 6.2.6
 
 ---
 
@@ -5688,7 +5679,7 @@ license_category: binary
 module: web-console
 license_name: Apache License version 2.0
 copyright: Palantir Technologies
-version: 5.23.0
+version: 6.14.1
 
 ---
 
@@ -5697,7 +5688,7 @@ license_category: binary
 module: web-console
 license_name: Apache License version 2.0
 copyright: Palantir Technologies
-version: 5.3.21
+version: 6.3.6
 
 ---
 
@@ -5828,6 +5819,56 @@ license_name: MIT License
 copyright: Alex Bol
 version: 2.0.3
 license_file_path: licenses/bin/@flatten-js-interval-tree.MIT
+
+---
+
+name: "@floating-ui/core"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: atomiks
+version: 1.8.0
+license_file_path: licenses/bin/@floating-ui-core.MIT
+
+---
+
+name: "@floating-ui/dom"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: atomiks
+version: 1.8.0
+license_file_path: licenses/bin/@floating-ui-dom.MIT
+
+---
+
+name: "@floating-ui/react-dom"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: atomiks
+version: 2.1.9
+license_file_path: licenses/bin/@floating-ui-react-dom.MIT
+
+---
+
+name: "@floating-ui/react"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: atomiks
+version: 0.27.20
+license_file_path: licenses/bin/@floating-ui-react.MIT
+
+---
+
+name: "@floating-ui/utils"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: atomiks
+version: 0.2.12
+license_file_path: licenses/bin/@floating-ui-utils.MIT
 
 ---
 
@@ -6999,7 +7040,7 @@ license_category: binary
 module: web-console
 license_name: MIT License
 copyright: Giampaolo Bellavite
-version: 7.4.9
+version: 8.10.2
 license_file_path: licenses/bin/react-day-picker.MIT
 
 ---
@@ -7101,16 +7142,6 @@ license_name: BSD-3-Clause License
 copyright: React Community
 version: 4.4.5
 license_file_path: licenses/bin/react-transition-group.BSD3
-
----
-
-name: "react-uid"
-license_category: binary
-module: web-console
-license_name: MIT License
-copyright: Marina Korzunova
-version: 2.4.0
-license_file_path: licenses/bin/react-uid.MIT
 
 ---
 
@@ -7234,6 +7265,16 @@ license_file_path: licenses/bin/supports-preserve-symlinks-flag.MIT
 
 ---
 
+name: "tabbable"
+license_category: binary
+module: web-console
+license_name: MIT License
+copyright: David Clark
+version: 6.5.0
+license_file_path: licenses/bin/tabbable.MIT
+
+---
+
 name: "tiny-invariant"
 license_category: binary
 module: web-console
@@ -7281,16 +7322,6 @@ license_name: MIT License
 copyright: Blake Embrey
 version: 2.0.2
 license_file_path: licenses/bin/upper-case.MIT
-
----
-
-name: "use-sync-external-store"
-license_category: binary
-module: web-console
-license_name: MIT License
-copyright: Meta Platforms, Inc. and affiliates.
-version: 1.7.0
-license_file_path: licenses/bin/use-sync-external-store.MIT
 
 ---
 

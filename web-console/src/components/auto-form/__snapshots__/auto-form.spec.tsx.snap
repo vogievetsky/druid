@@ -19,7 +19,7 @@ exports[`AutoForm matches snapshot 1`] = `
   <Memo(FormGroupWithInfo)
     label="Test size bytes"
   >
-    <Blueprint5.NumericInput
+    <Blueprint6.NumericInput
       allowNumericCharactersOnly={true}
       buttonPosition="right"
       clampValueOnBlur={false}
@@ -78,7 +78,7 @@ exports[`AutoForm matches snapshot 1`] = `
   <Memo(FormGroupWithInfo)
     label="Test boolean"
   >
-    <Blueprint5.SegmentedControl
+    <Blueprint6.SegmentedControl
       onValueChange={[Function]}
       options={
         [
@@ -101,7 +101,7 @@ exports[`AutoForm matches snapshot 1`] = `
   <Memo(FormGroupWithInfo)
     label="Test boolean with default"
   >
-    <Blueprint5.SegmentedControl
+    <Blueprint6.SegmentedControl
       onValueChange={[Function]}
       options={
         [
@@ -167,13 +167,13 @@ exports[`AutoForm matches snapshot 1`] = `
       value=""
     />
   </Memo(FormGroupWithInfo)>
-  <Blueprint5.FormGroup>
-    <Blueprint5.Button
+  <Blueprint6.FormGroup>
+    <Blueprint6.Button
       minimal={true}
       onClick={[Function]}
       rightIcon="chevron-down"
       text="Show more"
     />
-  </Blueprint5.FormGroup>
+  </Blueprint6.FormGroup>
 </div>
 `;

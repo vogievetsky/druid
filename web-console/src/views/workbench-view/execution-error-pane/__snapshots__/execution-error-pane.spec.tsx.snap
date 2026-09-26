@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`ExecutionErrorPane matches snapshot 1`] = `
-<Blueprint5.Callout
+<Blueprint6.Callout
   className="execution-error-pane"
   icon="error"
 >
@@ -39,5 +39,5 @@ exports[`ExecutionErrorPane matches snapshot 1`] = `
       get query detail archive
     </a>
   </div>
-</Blueprint5.Callout>
+</Blueprint6.Callout>
 `;

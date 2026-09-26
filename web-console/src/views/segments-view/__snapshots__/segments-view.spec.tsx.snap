@@ -14,29 +14,29 @@ exports[`SegmentsView matches snapshot 1`] = `
     <ForwardRef>
       Group by
     </ForwardRef>
-    <Blueprint5.ButtonGroup>
-      <Blueprint5.Button
+    <Blueprint6.ButtonGroup>
+      <Blueprint6.Button
         active={true}
         onClick={[Function]}
       >
         None
-      </Blueprint5.Button>
-      <Blueprint5.Button
+      </Blueprint6.Button>
+      <Blueprint6.Button
         active={false}
         onClick={[Function]}
       >
         Interval
-      </Blueprint5.Button>
-    </Blueprint5.ButtonGroup>
+      </Blueprint6.Button>
+    </Blueprint6.ButtonGroup>
     <Memo(MoreButton)>
-      <Blueprint5.MenuItem
+      <Blueprint6.MenuItem
         disabled={true}
         icon="application"
         onClick={[Function]}
         text="View SQL query for table"
       />
     </Memo(MoreButton)>
-    <Blueprint5.Switch
+    <Blueprint6.Switch
       checked={false}
       disabled={false}
       label="Show segment timeline"

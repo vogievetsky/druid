@@ -11,7 +11,7 @@ exports[`LookupsView matches snapshot 1`] = `
       localStorageKey="lookups-refresh-rate"
       onRefresh={[Function]}
     />
-    <Blueprint5.Button
+    <Blueprint6.Button
       icon="plus"
       onClick={[Function]}
       text="Add lookup"

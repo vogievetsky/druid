@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`CompactionConfigDialog matches snapshot with compactionConfig (dynamic partitionsSpec) 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   canOutsideClickClose={false}
   className="compaction-config-dialog"
   isOpen={true}
@@ -370,7 +370,7 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (dynamic 
         }
         inlineInfo={true}
       >
-        <Blueprint5.Switch
+        <Blueprint6.Switch
           checked={false}
           label="Use concurrent locks"
           onChange={[Function]}
@@ -379,27 +379,27 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (dynamic 
     </React.Fragment>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         className="history-button"
         minimal={true}
         onClick={[Function]}
         text="History"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         intent="danger"
         onClick={[Function]}
         text="Delete"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={false}
         intent="primary"
         onClick={[Function]}
@@ -407,11 +407,11 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (dynamic 
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`CompactionConfigDialog matches snapshot with compactionConfig (hashed partitionsSpec) 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   canOutsideClickClose={false}
   className="compaction-config-dialog"
   isOpen={true}
@@ -780,7 +780,7 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (hashed p
         }
         inlineInfo={true}
       >
-        <Blueprint5.Switch
+        <Blueprint6.Switch
           checked={false}
           label="Use concurrent locks"
           onChange={[Function]}
@@ -789,27 +789,27 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (hashed p
     </React.Fragment>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         className="history-button"
         minimal={true}
         onClick={[Function]}
         text="History"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         intent="danger"
         onClick={[Function]}
         text="Delete"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={false}
         intent="primary"
         onClick={[Function]}
@@ -817,11 +817,11 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (hashed p
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`CompactionConfigDialog matches snapshot with compactionConfig (range partitionsSpec) 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   canOutsideClickClose={false}
   className="compaction-config-dialog"
   isOpen={true}
@@ -1190,7 +1190,7 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (range pa
         }
         inlineInfo={true}
       >
-        <Blueprint5.Switch
+        <Blueprint6.Switch
           checked={false}
           label="Use concurrent locks"
           onChange={[Function]}
@@ -1199,27 +1199,27 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (range pa
     </React.Fragment>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         className="history-button"
         minimal={true}
         onClick={[Function]}
         text="History"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         intent="danger"
         onClick={[Function]}
         text="Delete"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={true}
         intent="primary"
         onClick={[Function]}
@@ -1227,11 +1227,11 @@ exports[`CompactionConfigDialog matches snapshot with compactionConfig (range pa
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`CompactionConfigDialog matches snapshot without compactionConfig 1`] = `
-<Blueprint5.Dialog
+<Blueprint6.Dialog
   canOutsideClickClose={false}
   className="compaction-config-dialog"
   isOpen={true}
@@ -1600,7 +1600,7 @@ exports[`CompactionConfigDialog matches snapshot without compactionConfig 1`] = 
         }
         inlineInfo={true}
       >
-        <Blueprint5.Switch
+        <Blueprint6.Switch
           checked={false}
           label="Use concurrent locks"
           onChange={[Function]}
@@ -1609,28 +1609,28 @@ exports[`CompactionConfigDialog matches snapshot without compactionConfig 1`] = 
     </React.Fragment>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         className="history-button"
         minimal={true}
         onClick={[Function]}
         text="History"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         data-tooltip="There is no compaction config currently set for this datasource"
         disabled={true}
         intent="danger"
         text="Delete"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint5.Button
+      <Blueprint6.Button
         disabled={false}
         intent="primary"
         onClick={[Function]}
@@ -1638,5 +1638,5 @@ exports[`CompactionConfigDialog matches snapshot without compactionConfig 1`] = 
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;

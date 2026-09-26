@@ -1,103 +1,99 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`ExplainDialog matches snapshot on error 1`] = `
-<Blueprint5.Dialog
-  canOutsideClickClose={true}
+<Blueprint6.Dialog
   className="explain-dialog"
   isOpen={true}
   onClose={[Function]}
   title="Query plan"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
     <div>
       test error
     </div>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`ExplainDialog matches snapshot on init 1`] = `
-<Blueprint5.Dialog
-  canOutsideClickClose={true}
+<Blueprint6.Dialog
   className="explain-dialog"
   isOpen={true}
   onClose={[Function]}
   title="Query plan"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
     <div />
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`ExplainDialog matches snapshot on loading 1`] = `
-<Blueprint5.Dialog
-  canOutsideClickClose={true}
+<Blueprint6.Dialog
   className="explain-dialog"
   isOpen={true}
   onClose={[Function]}
   title="Query plan"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
     <Memo(Loader) />
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
-<Blueprint5.Dialog
-  canOutsideClickClose={true}
+<Blueprint6.Dialog
   className="explain-dialog"
   isOpen={true}
   onClose={[Function]}
   title="Query plan"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
-    <Blueprint5.Tabs
+    <Blueprint6.Tabs
       animate={true}
       fill={false}
       large={false}
@@ -105,14 +101,14 @@ exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
       size="medium"
       vertical={true}
     >
-      <Blueprint5.Tab
+      <Blueprint6.Tab
         disabled={false}
         id={0}
         panel={
           <div
             className="query-explanation"
           >
-            <Blueprint5.FormGroup
+            <Blueprint6.FormGroup
               className="query-group"
             >
               <ReactAce
@@ -180,17 +176,17 @@ exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
                 width="100%"
                 wrapEnabled={false}
               />
-            </Blueprint5.FormGroup>
-            <Blueprint5.FormGroup
+            </Blueprint6.FormGroup>
+            <Blueprint6.FormGroup
               className="signature-group"
               label="Signature"
             >
-              <Blueprint5.InputGroup
+              <Blueprint6.InputGroup
                 defaultValue="channel::STRING→channel"
                 readOnly={true}
               />
-            </Blueprint5.FormGroup>
-            <Blueprint5.Button
+            </Blueprint6.FormGroup>
+            <Blueprint6.Button
               className="open-query"
               intent="primary"
               minimal={true}
@@ -202,14 +198,14 @@ exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
         }
         title="Query 1"
       />
-      <Blueprint5.Tab
+      <Blueprint6.Tab
         disabled={false}
         id={1}
         panel={
           <div
             className="query-explanation"
           >
-            <Blueprint5.FormGroup
+            <Blueprint6.FormGroup
               className="query-group"
             >
               <ReactAce
@@ -282,17 +278,17 @@ exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
                 width="100%"
                 wrapEnabled={false}
               />
-            </Blueprint5.FormGroup>
-            <Blueprint5.FormGroup
+            </Blueprint6.FormGroup>
+            <Blueprint6.FormGroup
               className="signature-group"
               label="Signature"
             >
-              <Blueprint5.InputGroup
+              <Blueprint6.InputGroup
                 defaultValue="channel::STRING→channel"
                 readOnly={true}
               />
-            </Blueprint5.FormGroup>
-            <Blueprint5.Button
+            </Blueprint6.FormGroup>
+            <Blueprint6.Button
               className="open-query"
               intent="primary"
               minimal={true}
@@ -305,38 +301,37 @@ exports[`ExplainDialog matches snapshot on some data (many queries) 1`] = `
         title="Query 2"
       />
       <TabsExpander />
-    </Blueprint5.Tabs>
+    </Blueprint6.Tabs>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
 
 exports[`ExplainDialog matches snapshot on some data (one query) 1`] = `
-<Blueprint5.Dialog
-  canOutsideClickClose={true}
+<Blueprint6.Dialog
   className="explain-dialog"
   isOpen={true}
   onClose={[Function]}
   title="Query plan"
 >
   <div
-    className="bp5-dialog-body"
+    className="bp6-dialog-body"
   >
     <div
       className="query-explanation"
     >
-      <Blueprint5.FormGroup
+      <Blueprint6.FormGroup
         className="query-group"
       >
         <ReactAce
@@ -468,17 +463,17 @@ exports[`ExplainDialog matches snapshot on some data (one query) 1`] = `
           width="100%"
           wrapEnabled={false}
         />
-      </Blueprint5.FormGroup>
-      <Blueprint5.FormGroup
+      </Blueprint6.FormGroup>
+      <Blueprint6.FormGroup
         className="signature-group"
         label="Signature"
       >
-        <Blueprint5.InputGroup
+        <Blueprint6.InputGroup
           defaultValue="d0::STRING→channel, a0::LONG→"Count""
           readOnly={true}
         />
-      </Blueprint5.FormGroup>
-      <Blueprint5.Button
+      </Blueprint6.FormGroup>
+      <Blueprint6.Button
         className="open-query"
         intent="primary"
         minimal={true}
@@ -489,16 +484,16 @@ exports[`ExplainDialog matches snapshot on some data (one query) 1`] = `
     </div>
   </div>
   <div
-    className="bp5-dialog-footer"
+    className="bp6-dialog-footer"
   >
     <div
-      className="bp5-dialog-footer-actions"
+      className="bp6-dialog-footer-actions"
     >
-      <Blueprint5.Button
+      <Blueprint6.Button
         onClick={[Function]}
         text="Close"
       />
     </div>
   </div>
-</Blueprint5.Dialog>
+</Blueprint6.Dialog>
 `;
