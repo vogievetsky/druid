@@ -19,33 +19,56 @@
 import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import { Duration, Timezone } from 'chronoshift';
+import { extent, least, max, min } from 'd3-array';
+import { axisBottom, axisLeft, axisRight } from 'd3-axis';
+import { scaleLinear, scaleUtc } from 'd3-scale';
+import { select } from 'd3-selection';
+import { line } from 'd3-shape';
 import { C, F, L } from 'druid-query-toolkit';
-import type { ECharts } from 'echarts';
-import * as echarts from 'echarts';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Loader, PortalBubble, type PortalBubbleOpenOn } from '../../../../components';
-import { useQueryManager } from '../../../../hooks';
+import { useGlobalEventListener, useQueryManager } from '../../../../hooks';
 import {
   bigIntsToNumbers,
-  ECHARTS_BACKGROUND_COLOR,
-  ECHARTS_BRUSH_STYLE,
-  ECHARTS_COLORS,
-  formatInteger,
+  clamp,
+  filterMap,
   formatIsoDateRange,
   formatNumber,
   getAutoGranularity,
+  getChartColor,
   prettyFormatIsoDateWithMsIfNeeded,
   tickFormatWithTimezone,
+  timezoneAwareTicks,
 } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { updateFilterClause } from '../../utils';
 
-interface MultiAxisChartHighlight extends PortalBubbleOpenOn {
-  start: Date;
-  end: Date;
+import './multi-axis-chart-module.scss';
+
+const Y_AXIS_WIDTH = 60;
+
+function getTimeDomain(
+  minTime: number | undefined,
+  maxTime: number | undefined,
+  granularity: string,
+): [number, number] {
+  if (typeof minTime !== 'number' || typeof maxTime !== 'number') return [0, 1];
+  if (minTime < maxTime) return [minTime, maxTime];
+
+  // There is only one time bucket so center it in a domain that is one bucket wide
+  const halfBucket = new Duration(granularity).getCanonicalLength() / 2;
+  return [minTime - halfBucket, minTime + halfBucket];
+}
+
+interface Brush {
+  data: any[];
+  start: number;
+  end: number;
+  finalized: boolean;
 }
 
 interface MultiAxisChartParameterValues {
@@ -85,9 +108,9 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
       stage,
       runSqlQuery,
     } = props;
-    const containerRef = useRef<HTMLDivElement | undefined>(undefined);
-    const chartRef = useRef<ECharts | undefined>(undefined);
-    const [highlight, setHighlight] = useState<MultiAxisChartHighlight | undefined>();
+    const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+    const [brush, setBrush] = useState<Brush | undefined>();
+    const [hoverTime, setHoverTime] = useState<number | undefined>();
 
     const timeColumnName = querySource.columns.find(column => column.sqlType === 'TIMESTAMP')?.name;
     const timeGranularity =
@@ -125,240 +148,275 @@ ModuleRepository.registerModule<MultiAxisChartParameterValues>({
       },
     });
 
-    function setupChart(container: HTMLDivElement) {
-      const myChart = echarts.init(container, 'dark');
+    const data = sourceDataState.data;
 
-      myChart.setOption({
-        color: ECHARTS_COLORS,
-        backgroundColor: ECHARTS_BACKGROUND_COLOR,
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross',
-            label: {
-              backgroundColor: '#6a7985',
-              formatter(d: any) {
-                if (d.axisDimension === 'x') {
-                  return prettyFormatIsoDateWithMsIfNeeded(new Date(d.value).toISOString());
-                } else {
-                  return Math.abs(d.value) < 1 ? formatNumber(d.value) : formatInteger(d.value);
-                }
-              },
-            },
-          },
-        },
-        legend: {
-          data: [],
-        },
-        brush: {
-          toolbox: ['lineX'],
-          xAxisIndex: 0,
-          brushStyle: ECHARTS_BRUSH_STYLE,
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true,
-        },
-        xAxis: [
-          {
-            type: 'time',
-            boundaryGap: false,
-            axisLabel: {
-              formatter(value: any) {
-                return tickFormatWithTimezone(new Date(value), timezone);
-              },
-            },
-          },
-        ],
-        yAxis: [
-          {
-            type: 'value',
-          },
-        ],
-      });
+    // The brush is only valid for the data it was made on
+    const effectiveBrush = brush && brush.data === data ? brush : undefined;
 
-      // auto-enables the brush tool on load
-      myChart.dispatchAction({
-        type: 'takeGlobalCursor',
-        key: 'brush',
-        brushOption: {
-          brushType: 'lineX',
-        },
-      });
+    const margin = {
+      top: 30,
+      right: 10 + Math.max(measures.length - 1, 0) * Y_AXIS_WIDTH,
+      bottom: 25,
+      left: 10 + Y_AXIS_WIDTH,
+    };
+    const innerStage = stage.applyMargin(margin);
 
-      return myChart;
+    const times: number[] = useMemo(() => (data || []).map(d => d.time.valueOf()), [data]);
+    const [minTime, maxTime] = extent(times);
+    const timeScale = scaleUtc()
+      .domain(getTimeDomain(minTime, maxTime, timeGranularity))
+      .range([0, Math.max(innerStage.width, 0)]);
+
+    const measureScales = useMemo(
+      () =>
+        measures.map(({ name }) =>
+          scaleLinear()
+            .domain([
+              Math.min(0, min(data || [], d => d[name]) ?? 0),
+              Math.max(0, max(data || [], d => d[name]) ?? 0),
+            ])
+            .range([Math.max(innerStage.height, 0), 0])
+            .nice(),
+        ),
+      [data, measures, innerStage.height],
+    );
+
+    function getTimeFromMouse(e: { clientX: number }): number | undefined {
+      if (!svgElement) return;
+      const rect = svgElement.getBoundingClientRect();
+      const x = clamp(e.clientX - rect.x - margin.left, 0, innerStage.width);
+      return timeScale.invert(x).valueOf();
     }
 
-    useEffect(() => {
-      return () => {
-        const myChart = chartRef.current;
-        if (!myChart) return;
-        myChart.dispose();
-      };
-    }, []);
+    function clearBrush() {
+      setBrush(undefined);
+    }
 
-    // Called by ECharts, so it has to see the latest where clause and time granularity, not the ones from when the data loaded
-    const handleBrush = useEffectEvent((params: any) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
+    useGlobalEventListener('mousemove', (e: MouseEvent) => {
+      if (!svgElement || !data) return;
+      if (effectiveBrush && !effectiveBrush.finalized) {
+        const time = getTimeFromMouse(e);
+        if (typeof time === 'number') setBrush({ ...effectiveBrush, end: time });
+        return;
+      }
 
-      if (!params.areas.length) return;
-
-      // this is only used for the label and the data saved in the highlight
-      // the positioning is done with the true coordinates until the user
-      // releases the mouse button (in the `brushend` event)
-      const duration = new Duration(timeGranularity);
-      const start = duration.round(params.areas[0].coordRange[0], Timezone.UTC);
-      const end = duration.round(params.areas[0].coordRange[1], Timezone.UTC);
-
-      const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[0]);
-      const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, params.areas[0].coordRange[1]);
-
-      setHighlight({
-        title: formatIsoDateRange(start, end, Timezone.UTC),
-        x: (x0 + x1) / 2,
-        y: 50,
-        start,
-        end,
-        text: (
-          <div className="button-bar">
-            <Button
-              text="Zoom in"
-              intent={Intent.PRIMARY}
-              size="small"
-              onClick={() => {
-                if (!timeColumnName) return;
-                setWhere(
-                  updateFilterClause(
-                    where,
-                    F(
-                      'TIME_IN_INTERVAL',
-                      C(timeColumnName),
-                      `${start.toISOString()}/${end.toISOString()}`,
-                    ),
-                  ),
-                );
-                setHighlight(undefined);
-                myChart.dispatchAction({
-                  type: 'brush',
-                  command: 'clear',
-                  areas: [],
-                });
-              }}
-            />
-            <Button
-              text="Close"
-              size="small"
-              onClick={() => {
-                setHighlight(undefined);
-                myChart.dispatchAction({
-                  type: 'brush',
-                  command: 'clear',
-                  areas: [],
-                });
-              }}
-            />
-          </div>
-        ),
-      });
+      const rect = svgElement.getBoundingClientRect();
+      const x = e.clientX - rect.x - margin.left;
+      const y = e.clientY - rect.y - margin.top;
+      if (
+        0 <= x &&
+        x <= innerStage.width &&
+        0 <= y &&
+        y <= innerStage.height &&
+        svgElement.contains(e.target as Node)
+      ) {
+        const time = timeScale.invert(x).valueOf();
+        setHoverTime(least(times, t => Math.abs(t - time)));
+      } else if (typeof hoverTime === 'number') {
+        setHoverTime(undefined);
+      }
     });
 
-    const updateChart = useEffectEvent((data: any[]) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-
-      myChart.setOption(
-        {
-          dataset: {
-            dimensions: ['time'].concat(measures.map(m => m.name)),
-            source: data,
-          },
-          grid: {
-            right: measures.length * 40,
-          },
-          yAxis: measures.map(({ name }, i) => ({
-            type: 'value',
-            name: name,
-            position: i === 0 ? 'left' : 'right',
-            offset: i === 0 ? 0 : (i - 1) * 80,
-            axisLine: {
-              show: true,
-            },
-          })),
-          series: measures.map(({ name }, i) => ({
-            name: name,
-            type: 'line',
-            showSymbol: false,
-            yAxisIndex: i,
-            encode: {
-              x: 'time',
-              y: name,
-              itemId: name,
-            },
-          })),
-        },
-        {
-          replaceMerge: ['yAxis', 'series'],
-        },
-      );
-
-      myChart.off('brush');
-
-      myChart.on('brush', (params: any) => handleBrush(params));
-    });
-
-    useEffect(() => {
-      const data = sourceDataState.data;
-      if (!data) return;
-      updateChart(data);
-    }, [sourceDataState.data]);
-
-    const handleStageChange = useEffectEvent(() => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-      myChart.resize();
-
-      // if there is a highlight, update its x position
-      // by calculating new pixel position from the highlight's data
-      if (highlight) {
-        const { start, end } = highlight;
-
-        const x0 = myChart.convertToPixel({ xAxisIndex: 0 }, start);
-        const x1 = myChart.convertToPixel({ xAxisIndex: 0 }, end);
-
-        setHighlight({
-          ...highlight,
-          x: (x0 + x1) / 2,
+    useGlobalEventListener('mouseup', () => {
+      if (!effectiveBrush || effectiveBrush.finalized) return;
+      if (effectiveBrush.start === effectiveBrush.end) {
+        clearBrush();
+      } else {
+        setBrush({
+          ...effectiveBrush,
+          start: Math.min(effectiveBrush.start, effectiveBrush.end),
+          end: Math.max(effectiveBrush.start, effectiveBrush.end),
+          finalized: true,
         });
       }
     });
 
-    useEffect(() => {
-      handleStageChange();
-    }, [stage]);
+    useGlobalEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearBrush();
+    });
+
+    let chart: ReactNode;
+    let openOn: PortalBubbleOpenOn | undefined;
+    if (data && !innerStage.isInvalid()) {
+      const [domainStart, domainEnd] = timeScale.domain();
+
+      chart = (
+        <g transform={`translate(${margin.left},${margin.top})`}>
+          <g
+            className="axis-x"
+            transform={`translate(0,${innerStage.height})`}
+            ref={(node: any) => {
+              select(node).call(
+                axisBottom(timeScale)
+                  .tickValues(timezoneAwareTicks(domainStart, domainEnd, 10, timezone))
+                  .tickFormat(x => tickFormatWithTimezone(x as Date, timezone)),
+              );
+            }}
+          />
+          {measures.map(({ name }, i) => {
+            const x = i === 0 ? 0 : innerStage.width + (i - 1) * Y_AXIS_WIDTH;
+            return (
+              <g key={i} className="axis-y" transform={`translate(${x},0)`}>
+                <g
+                  ref={(node: any) => {
+                    select(node).call(
+                      (i === 0 ? axisLeft : axisRight)(measureScales[i])
+                        .ticks(5)
+                        .tickFormat(v => formatNumber(v.valueOf())),
+                    );
+                  }}
+                />
+                <text
+                  className="axis-name"
+                  y={-12}
+                  textAnchor={i === 0 ? 'end' : 'start'}
+                  fill={getChartColor(i)}
+                >
+                  {name}
+                </text>
+              </g>
+            );
+          })}
+          <rect
+            className="interaction-area"
+            width={innerStage.width}
+            height={innerStage.height}
+            onMouseDown={e => {
+              e.preventDefault();
+              const time = getTimeFromMouse(e);
+              if (typeof time !== 'number') return;
+              setBrush({ data, start: time, end: time, finalized: false });
+            }}
+          />
+          {measures.map(({ name }, i) => (
+            <path
+              key={i}
+              className="series-line"
+              d={line<any>()
+                .defined(d => typeof d[name] === 'number')
+                .x(d => timeScale(d.time.valueOf()))
+                .y(d => measureScales[i](d[name]))(data)!}
+              stroke={getChartColor(i)}
+            />
+          ))}
+          {measures.flatMap(({ name }, i) =>
+            filterMap(data, (d, j) => {
+              // Lines are not visible for isolated points so mark them with a dot
+              if (
+                typeof d[name] !== 'number' ||
+                typeof data[j - 1]?.[name] === 'number' ||
+                typeof data[j + 1]?.[name] === 'number'
+              ) {
+                return;
+              }
+              return (
+                <circle
+                  key={`${i}_${j}`}
+                  className="single-point"
+                  cx={timeScale(d.time.valueOf())}
+                  cy={measureScales[i](d[name])}
+                  r={2}
+                  fill={getChartColor(i)}
+                />
+              );
+            }),
+          )}
+          {typeof hoverTime === 'number' && !effectiveBrush && (
+            <line
+              className="hover-line"
+              x1={timeScale(hoverTime)}
+              x2={timeScale(hoverTime)}
+              y1={0}
+              y2={innerStage.height}
+            />
+          )}
+          {effectiveBrush && (
+            <rect
+              className="brush"
+              x={timeScale(Math.min(effectiveBrush.start, effectiveBrush.end))}
+              width={Math.abs(timeScale(effectiveBrush.end) - timeScale(effectiveBrush.start))}
+              y={0}
+              height={innerStage.height}
+            />
+          )}
+        </g>
+      );
+
+      if (effectiveBrush) {
+        const duration = new Duration(timeGranularity);
+        const start = duration.floor(new Date(effectiveBrush.start), Timezone.UTC);
+        const end = duration.ceil(new Date(effectiveBrush.end), Timezone.UTC);
+
+        openOn = {
+          title: formatIsoDateRange(start, end, Timezone.UTC),
+          x: margin.left + timeScale((effectiveBrush.start + effectiveBrush.end) / 2),
+          y: 50,
+          text: effectiveBrush.finalized ? (
+            <div className="button-bar">
+              <Button
+                text="Zoom in"
+                intent={Intent.PRIMARY}
+                size="small"
+                onClick={() => {
+                  if (!timeColumnName) return;
+                  setWhere(
+                    updateFilterClause(
+                      where,
+                      F(
+                        'TIME_IN_INTERVAL',
+                        C(timeColumnName),
+                        `${start.toISOString()}/${end.toISOString()}`,
+                      ),
+                    ),
+                  );
+                  clearBrush();
+                }}
+              />
+              <Button text="Close" size="small" onClick={clearBrush} />
+            </div>
+          ) : undefined,
+        };
+      } else if (typeof hoverTime === 'number') {
+        const datum = data.find(d => d.time.valueOf() === hoverTime);
+        if (datum) {
+          openOn = {
+            title: prettyFormatIsoDateWithMsIfNeeded(new Date(hoverTime)),
+            x: margin.left + timeScale(hoverTime),
+            y: margin.top,
+            text: measures.map(({ name }, i) => (
+              <div key={i}>
+                <span className="series-swatch" style={{ background: getChartColor(i) }} />
+                {`${name}: ${formatNumber(datum[name])}`}
+              </div>
+            )),
+          };
+        }
+      }
+    }
 
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="multi-axis-chart-module module">
-        <div
-          className="echart-container"
-          ref={container => {
-            if (chartRef.current || !container) return;
-            containerRef.current = container;
-            chartRef.current = setupChart(container);
-          }}
-        />
+        <svg
+          className="chart-container"
+          ref={setSvgElement}
+          {...stage.toWidthHeight()}
+          viewBox={stage.toViewBox()}
+        >
+          {chart}
+        </svg>
         {errorMessage && <Issue issue={errorMessage} />}
         {sourceDataState.loading && (
           <Loader cancelText="Cancel query" onCancel={() => queryManager.cancelCurrent()} />
         )}
-        <PortalBubble
-          className="module-bubble"
-          openOn={highlight}
-          offsetElement={containerRef.current}
-        />
+        {svgElement && (
+          <PortalBubble
+            className="module-bubble multi-axis-chart-bubble"
+            openOn={openOn}
+            offsetElement={svgElement}
+            mute={!effectiveBrush?.finalized}
+          />
+        )}
       </div>
     );
   },

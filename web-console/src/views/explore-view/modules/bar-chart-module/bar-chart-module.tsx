@@ -18,29 +18,38 @@
 
 import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
+import classNames from 'classnames';
+import { max, min } from 'd3-array';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { scaleBand, scaleLinear } from 'd3-scale';
+import { select } from 'd3-selection';
 import { F, L } from 'druid-query-toolkit';
-import type { ECElementEvent, ECharts } from 'echarts';
-import * as echarts from 'echarts';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Loader, PortalBubble, type PortalBubbleOpenOn } from '../../../../components';
 import { useQueryManager } from '../../../../hooks';
 import {
   bigIntsToNumbers,
-  ECHARTS_BACKGROUND_COLOR,
-  ECHARTS_COLORS,
+  CHART_COLORS,
   formatEmpty,
+  formatNumber,
+  prettyFormatIsoDate,
 } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { updateFilterClause } from '../../utils';
 
+import './bar-chart-module.scss';
+
 const OVERALL_LABEL = 'Overall';
 
-interface BarChartHighlight extends PortalBubbleOpenOn {
-  dim: number;
-  met: number;
+const MARGIN = { top: 20, right: 20, bottom: 70, left: 70 };
+
+function formatDim(dim: unknown): string {
+  if (dim instanceof Date) return prettyFormatIsoDate(dim);
+  return formatEmpty(String(dim));
 }
 
 interface BarChartParameterValues {
@@ -111,9 +120,9 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       stage,
       runSqlQuery,
     } = props;
-    const containerRef = useRef<HTMLDivElement | undefined>(undefined);
-    const chartRef = useRef<ECharts | undefined>(undefined);
-    const [highlight, setHighlight] = useState<BarChartHighlight | undefined>();
+    const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+    const [hoveredIndex, setHoveredIndex] = useState<number | undefined>();
+    const [selected, setSelected] = useState<{ data: any[]; index: number } | undefined>();
 
     const { splitColumn, timeBucket, measure, measureToSort, limit } = parameterValues;
 
@@ -161,151 +170,140 @@ ModuleRepository.registerModule<BarChartParameterValues>({
       },
     });
 
-    function setupChart(container: HTMLDivElement) {
-      const myChart = echarts.init(container, 'dark');
+    const data = sourceDataState.data;
 
-      myChart.setOption({
-        color: ECHARTS_COLORS,
-        backgroundColor: ECHARTS_BACKGROUND_COLOR,
-        tooltip: {},
-        dataset: {
-          sourceHeader: false,
-          dimensions: ['dim', 'met'],
-          source: [],
-        },
-        xAxis: {
-          type: 'category',
-          axisLabel: { interval: 0, rotate: -30 },
-        },
-        yAxis: {},
-        series: [
-          {
-            type: 'bar',
-            encode: {
-              x: 'dim',
-              y: 'met',
-            },
-          },
-        ],
-      });
+    // The selection is only valid for the data it was made on
+    const selectedIndex = selected && selected.data === data ? selected.index : undefined;
+    const setSelectedIndex = (index: number | undefined) => {
+      setSelected(data && typeof index === 'number' ? { data, index } : undefined);
+    };
 
-      return myChart;
-    }
+    const innerStage = stage.applyMargin(MARGIN);
 
-    useEffect(() => {
-      return () => {
-        const myChart = chartRef.current;
-        if (!myChart) return;
-        myChart.dispose();
+    let chart: ReactNode;
+    let openOn: PortalBubbleOpenOn | undefined;
+    if (data && !innerStage.isInvalid()) {
+      const xScale = scaleBand<number>()
+        .domain(data.map((_, i) => i))
+        .range([0, innerStage.width])
+        .padding(0.2);
+
+      const yScale = scaleLinear()
+        .domain([Math.min(0, min(data, d => d.met) ?? 0), Math.max(0, max(data, d => d.met) ?? 0)])
+        .range([innerStage.height, 0])
+        .nice();
+
+      const barRect = (d: any, i: number) => {
+        const y0 = yScale(0);
+        const y1 = yScale(d.met);
+        return {
+          x: xScale(i)!,
+          y: Math.min(y0, y1),
+          width: xScale.bandwidth(),
+          height: Math.abs(y0 - y1),
+        };
       };
-    }, []);
 
-    // Called by ECharts, so it has to see the latest where clause and split column, not the ones from when the data loaded
-    const handleSeriesClick = useEffectEvent((p: ECElementEvent) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-
-      const label = p.name;
-      const { dim, met } = p.data as any;
-
-      const [x, y] = myChart.convertToPixel({ seriesIndex: 0 }, [dim, met]);
-
-      setHighlight({
-        title: formatEmpty(label),
-        x: x,
-        y: y - 20,
-        dim,
-        met,
-        text: (
-          <div className="button-bar">
-            {label !== OVERALL_LABEL && (
-              <Button
-                text="Zoom in"
-                intent={Intent.PRIMARY}
-                size="small"
-                onClick={() => {
-                  if (splitColumn) {
-                    setWhere(updateFilterClause(where, splitColumn.expression.equal(label)));
-                  }
-                  setHighlight(undefined);
-                }}
-              />
-            )}
-            <Button
-              text="Close"
-              size="small"
-              onClick={() => {
-                setHighlight(undefined);
-              }}
+      chart = (
+        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+          <g
+            className="axis-y"
+            ref={(node: any) => {
+              select(node).call(
+                axisLeft(yScale)
+                  .ticks(5)
+                  .tickFormat(v => formatNumber(v.valueOf())),
+              );
+            }}
+          />
+          <g
+            className="axis-x"
+            transform={`translate(0,${yScale(0)})`}
+            ref={(node: any) => {
+              select(node)
+                .call(
+                  axisBottom(xScale)
+                    .tickSizeOuter(0)
+                    .tickFormat(i => formatDim(data[i]?.dim)),
+                )
+                .selectAll('text')
+                .attr('transform', 'rotate(30)')
+                .attr('text-anchor', 'start');
+            }}
+          />
+          {data.map((d, i) => (
+            <rect
+              key={i}
+              className={classNames('bar', { hovered: hoveredIndex === i })}
+              {...barRect(d, i)}
+              fill={CHART_COLORS[0]}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(undefined)}
+              onClick={() => setSelectedIndex(selectedIndex === i ? undefined : i)}
             />
-          </div>
-        ),
-      });
-    });
+          ))}
+        </g>
+      );
 
-    const updateChart = useEffectEvent((data: any[]) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-
-      myChart.off('click');
-
-      myChart.setOption({
-        dataset: {
-          source: data,
-        },
-      });
-
-      myChart.on('click', 'series', p => handleSeriesClick(p));
-    });
-
-    useEffect(() => {
-      const data = sourceDataState.data;
-      if (!data) return;
-      updateChart(data);
-    }, [sourceDataState.data]);
-
-    const handleStageChange = useEffectEvent(() => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-      myChart.resize();
-
-      // if there is a highlight, update its x position
-      // by calculating new pixel position from the highlight's data
-      if (highlight) {
-        const [x, y] = myChart.convertToPixel({ seriesIndex: 0 }, [highlight.dim, highlight.met]);
-
-        setHighlight({
-          ...highlight,
-          x: x,
-          y: y - 20,
-        });
+      const bubbleIndex = selectedIndex ?? hoveredIndex;
+      const bubbleDatum = typeof bubbleIndex === 'number' ? data[bubbleIndex] : undefined;
+      if (typeof bubbleIndex === 'number' && bubbleDatum) {
+        const r = barRect(bubbleDatum, bubbleIndex);
+        const label = bubbleDatum.dim;
+        openOn = {
+          title: formatDim(label),
+          x: MARGIN.left + r.x + r.width / 2,
+          y: MARGIN.top + r.y,
+          text: (
+            <>
+              {formatNumber(bubbleDatum.met)}
+              {typeof selectedIndex === 'number' && (
+                <div className="button-bar">
+                  {label !== OVERALL_LABEL && (
+                    <Button
+                      text="Zoom in"
+                      intent={Intent.PRIMARY}
+                      size="small"
+                      onClick={() => {
+                        if (splitColumn) {
+                          setWhere(updateFilterClause(where, splitColumn.expression.equal(label)));
+                        }
+                        setSelectedIndex(undefined);
+                      }}
+                    />
+                  )}
+                  <Button text="Close" size="small" onClick={() => setSelectedIndex(undefined)} />
+                </div>
+              )}
+            </>
+          ),
+        };
       }
-    });
-
-    useEffect(() => {
-      handleStageChange();
-    }, [stage]);
+    }
 
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="bar-chart-module module">
-        <div
-          className="echart-container"
-          ref={container => {
-            if (chartRef.current || !container) return;
-            containerRef.current = container;
-            chartRef.current = setupChart(container);
-          }}
-        />
+        <svg
+          className="chart-container"
+          ref={setSvgElement}
+          {...stage.toWidthHeight()}
+          viewBox={stage.toViewBox()}
+        >
+          {chart}
+        </svg>
         {errorMessage && <Issue issue={errorMessage} />}
         {sourceDataState.loading && (
           <Loader cancelText="Cancel query" onCancel={() => queryManager.cancelCurrent()} />
         )}
-        <PortalBubble
-          className="module-bubble"
-          openOn={highlight}
-          offsetElement={containerRef.current}
-        />
+        {svgElement && (
+          <PortalBubble
+            className="module-bubble"
+            openOn={openOn}
+            offsetElement={svgElement}
+            mute={typeof selectedIndex !== 'number'}
+          />
+        )}
       </div>
     );
   },

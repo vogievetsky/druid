@@ -16,15 +16,21 @@
  * limitations under the License.
  */
 
-import { FormGroup, NumericInput, Slider } from '@blueprintjs/core';
-import type { ECharts } from 'echarts';
-import * as echarts from 'echarts';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FormGroup, NumericInput, ResizeSensor, Slider } from '@blueprintjs/core';
+import { extent, least, max } from 'd3-array';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { scaleLinear } from 'd3-scale';
+import { select } from 'd3-selection';
+import { line } from 'd3-shape';
+import type { ReactNode } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { Loader } from '../../../components/loader/loader';
+import type { PortalBubbleOpenOn } from '../../../components/portal-bubble/portal-bubble';
+import { PortalBubble } from '../../../components/portal-bubble/portal-bubble';
 import { useQueryManager } from '../../../hooks';
 import { Api } from '../../../singletons';
-import { ECHARTS_BACKGROUND_COLOR, ECHARTS_COLORS } from '../../../utils';
+import { CHART_COLORS, formatNumber, Stage } from '../../../utils';
 
 import './auto-scaler-panel.scss';
 
@@ -32,6 +38,8 @@ interface AutoScalerRow {
   lag: number;
   taskCount: number;
 }
+
+const CHART_MARGIN = { top: 15, right: 40, bottom: 45, left: 70 };
 
 interface AutoScalerPanelProps {
   supervisorId: string;
@@ -81,8 +89,9 @@ export const AutoScalerPanel = React.memo(function AutoScalerPanel(props: AutoSc
   // Undefined means "let the server use the supervisor's live task count".
   const [currentTaskCount, setCurrentTaskCount] = useState<number | undefined>(undefined);
 
-  const chartContainerRef = useRef<HTMLDivElement | undefined>(undefined);
-  const chartRef = useRef<ECharts | undefined>(undefined);
+  const [stage, setStage] = useState<Stage | undefined>();
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<AutoScalerRow | undefined>();
   const query = useMemo(
     () => ({
       supervisorId,
@@ -151,69 +160,98 @@ export const AutoScalerPanel = React.memo(function AutoScalerPanel(props: AutoSc
     },
   });
 
-  function setupChart(container: HTMLDivElement): ECharts {
-    const myChart = echarts.init(container, 'dark');
-    myChart.setOption({
-      color: ECHARTS_COLORS,
-      backgroundColor: ECHARTS_BACKGROUND_COLOR,
-      tooltip: {
-        trigger: 'axis',
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true,
-      },
-      xAxis: {
-        type: 'value',
-        name: 'Lag (records)',
-        nameLocation: 'middle',
-        nameGap: 30,
-      },
-      yAxis: {
-        type: 'value',
-        name: 'Task count',
-        nameLocation: 'middle',
-        nameGap: 40,
-      },
-      series: [
-        {
-          name: 'Task count',
-          type: 'line',
-          showSymbol: false,
-          data: [],
-        },
-      ],
-    });
-    return myChart;
+  const data = dataState.data;
+  const innerStage = stage?.applyMargin(CHART_MARGIN);
+
+  let chart: ReactNode;
+  let hoveredOpenOn: PortalBubbleOpenOn | undefined;
+  if (data && innerStage && !innerStage.isInvalid()) {
+    const lagExtent = extent(data, d => d.lag);
+    const xScale = scaleLinear()
+      .domain(typeof lagExtent[0] === 'number' ? lagExtent : [0, 1])
+      .range([0, innerStage.width])
+      .nice();
+    const yScale = scaleLinear()
+      .domain([0, max(data, d => d.taskCount) ?? 1])
+      .range([innerStage.height, 0])
+      .nice();
+
+    chart = (
+      <g transform={`translate(${CHART_MARGIN.left},${CHART_MARGIN.top})`}>
+        <g
+          className="axis-x"
+          transform={`translate(0,${innerStage.height})`}
+          ref={(node: any) => {
+            select(node).call(axisBottom(xScale).tickFormat(v => formatNumber(v.valueOf())));
+          }}
+        />
+        <text
+          className="axis-name"
+          x={innerStage.width / 2}
+          y={innerStage.height + 38}
+          textAnchor="middle"
+        >
+          Lag (records)
+        </text>
+        <g
+          className="axis-y"
+          ref={(node: any) => {
+            select(node).call(axisLeft(yScale).tickFormat(v => formatNumber(v.valueOf())));
+          }}
+        />
+        <text
+          className="axis-name"
+          transform={`translate(-50,${innerStage.height / 2}) rotate(-90)`}
+          textAnchor="middle"
+        >
+          Task count
+        </text>
+        <path
+          className="series-line"
+          d={line<AutoScalerRow>()
+            .x(d => xScale(d.lag))
+            .y(d => yScale(d.taskCount))(data)!}
+          stroke={CHART_COLORS[0]}
+        />
+        {hoveredRow && (
+          <>
+            <line
+              className="hover-line"
+              x1={xScale(hoveredRow.lag)}
+              x2={xScale(hoveredRow.lag)}
+              y1={0}
+              y2={innerStage.height}
+            />
+            <circle
+              cx={xScale(hoveredRow.lag)}
+              cy={yScale(hoveredRow.taskCount)}
+              r={3}
+              fill={CHART_COLORS[0]}
+            />
+          </>
+        )}
+        <rect
+          className="interaction-area"
+          width={innerStage.width}
+          height={innerStage.height}
+          onMouseMove={e => {
+            const lag = xScale.invert(e.clientX - e.currentTarget.getBoundingClientRect().x);
+            setHoveredRow(least(data, d => Math.abs(d.lag - lag)));
+          }}
+          onMouseLeave={() => setHoveredRow(undefined)}
+        />
+      </g>
+    );
+
+    if (hoveredRow) {
+      hoveredOpenOn = {
+        title: `Lag: ${formatNumber(hoveredRow.lag)}`,
+        x: CHART_MARGIN.left + xScale(hoveredRow.lag),
+        y: CHART_MARGIN.top + yScale(hoveredRow.taskCount),
+        text: `Task count: ${formatNumber(hoveredRow.taskCount)}`,
+      };
+    }
   }
-
-  useEffect(() => {
-    return () => {
-      chartRef.current?.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    const myChart = chartRef.current;
-    const data = dataState.data;
-    if (!myChart || !data) return;
-
-    myChart.setOption({
-      series: [
-        {
-          data: data.map(row => [row.lag, row.taskCount]),
-        },
-      ],
-    });
-  }, [dataState.data]);
-
-  useEffect(() => {
-    const myChart = chartRef.current;
-    if (!myChart) return;
-    myChart.resize();
-  }, []);
 
   const errorMessage = validationError ?? dataState.getErrorMessage();
 
@@ -293,14 +331,23 @@ export const AutoScalerPanel = React.memo(function AutoScalerPanel(props: AutoSc
       <div className="auto-scaler-chart-area">
         {errorMessage && <div className="auto-scaler-error">{errorMessage}</div>}
         {dataState.loading && <Loader />}
-        <div
-          className="auto-scaler-echart"
-          ref={container => {
-            if (chartRef.current || !container) return;
-            chartContainerRef.current = container;
-            chartRef.current = setupChart(container);
+        <ResizeSensor
+          onResize={entries => {
+            if (entries.length !== 1) return;
+            const newStage = new Stage(entries[0].contentRect.width, entries[0].contentRect.height);
+            if (newStage.equals(stage)) return;
+            setStage(newStage);
           }}
-        />
+        >
+          <div className="auto-scaler-chart">
+            {stage && (
+              <svg ref={setSvgElement} {...stage.toWidthHeight()} viewBox={stage.toViewBox()}>
+                {chart}
+              </svg>
+            )}
+          </div>
+        </ResizeSensor>
+        {svgElement && <PortalBubble openOn={hoveredOpenOn} offsetElement={svgElement} mute />}
       </div>
     </div>
   );

@@ -16,9 +16,8 @@
  * limitations under the License.
  */
 
-// The series color palette of the ECharts 5 'dark' theme. ECharts 6 changed the palette of its 'dark'
-// theme; set this as the `color` option to keep the v5 colors while using the rest of the v6 theme.
-export const ECHARTS_COLORS = [
+// The series color palette used by the charts (originally from the ECharts 5 'dark' theme).
+export const CHART_COLORS = [
   '#4992ff',
   '#7cffb2',
   '#fddd60',
@@ -30,11 +29,6 @@ export const ECHARTS_COLORS = [
   '#dd79ff',
 ];
 
-// The background color of the ECharts 5 'dark' theme.
-export const ECHARTS_BACKGROUND_COLOR = '#100C2A';
-
-// The brush (selection highlight) style of ECharts 5.
-export const ECHARTS_BRUSH_STYLE = {
-  color: 'rgba(210,219,238,0.3)',
-  borderColor: '#D2DBEE',
-};
+export function getChartColor(index: number): string {
+  return CHART_COLORS[index % CHART_COLORS.length];
+}

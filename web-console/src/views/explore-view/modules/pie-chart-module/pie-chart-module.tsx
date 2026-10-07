@@ -18,51 +18,34 @@
 
 import { Button, Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
+import classNames from 'classnames';
+import { sum } from 'd3-array';
+import type { PieArcDatum } from 'd3-shape';
+import { arc, pie } from 'd3-shape';
 import { C, F, L } from 'druid-query-toolkit';
-import type { ECElementEvent, ECharts } from 'echarts';
-import * as echarts from 'echarts';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Loader, PortalBubble, type PortalBubbleOpenOn } from '../../../../components';
 import { useQueryManager } from '../../../../hooks';
 import { ColorAssigner } from '../../../../singletons';
-import {
-  bigIntsToNumbers,
-  ECHARTS_BACKGROUND_COLOR,
-  ECHARTS_COLORS,
-  formatEmpty,
-  formatNumber,
-} from '../../../../utils';
+import { bigIntsToNumbers, formatEmpty, formatNumber, formatPercent } from '../../../../utils';
 import { Issue } from '../../components';
 import type { ExpressionMeta } from '../../models';
 import { ModuleRepository } from '../../module-repository/module-repository';
 import { updateFilterClause } from '../../utils';
 
+import './pie-chart-module.scss';
+
 const OVERALL_LABEL = 'Overall';
 
-/**
- * Returns the cartesian coordinates of a pie slice external centroid
- */
-function getCentroid(chart: echarts.ECharts, dataIndex: number) {
-  // see these underscores everywhere? that's because those are private properties
-  // I have no real choice but to use them, because there is no public API for this (on pie charts)
-  // #no_ragrets
-  const layout = (chart as any)._chartsViews?.[0]?._data?._itemLayouts?.[dataIndex];
+const LEGEND_ITEM_HEIGHT = 20;
+const LABEL_OFFSET = 20;
 
-  if (!layout) return;
-
-  const { cx, cy, startAngle, endAngle, r } = layout;
-  const angle = (startAngle + endAngle) / 2;
-
-  const x = cx + Math.cos(angle) * r;
-  const y = cy + Math.sin(angle) * r;
-
-  return { x, y };
-}
-
-interface PieChartHighlight extends PortalBubbleOpenOn {
+interface PieDatum {
   name: string;
-  dataIndex: number;
+  value: number;
+  __isOthers?: boolean;
 }
 
 interface PieChartParameterValues {
@@ -106,9 +89,10 @@ ModuleRepository.registerModule<PieChartParameterValues>({
   component: function PieChartModule(props) {
     const { querySource, where, setWhere, moduleWhere, parameterValues, stage, runSqlQuery } =
       props;
-    const containerRef = useRef<HTMLDivElement | undefined>(undefined);
-    const chartRef = useRef<ECharts | undefined>(undefined);
-    const [highlight, setHighlight] = useState<PieChartHighlight | undefined>();
+    const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+    const [hoveredName, setHoveredName] = useState<string | undefined>();
+    const [selected, setSelected] = useState<{ data: PieDatum[]; name: string } | undefined>();
+    const [hiddenNames, setHiddenNames] = useState<ReadonlySet<string>>(new Set());
 
     const { splitColumn, measure, limit, showOthers } = parameterValues;
 
@@ -137,7 +121,7 @@ ModuleRepository.registerModule<PieChartParameterValues>({
       query: dataQueries,
       processQuery: async ({ mainQuery, limit, splitExpression, othersPartialQuery }, signal) => {
         const result = await runSqlQuery({ query: mainQuery }, signal);
-        const data = bigIntsToNumbers(result.toObjectArray(), ['value']);
+        const data = bigIntsToNumbers(result.toObjectArray(), ['value']) as PieDatum[];
 
         if (splitExpression && othersPartialQuery) {
           const pieValues = result.getColumnByIndex(0)!;
@@ -158,178 +142,154 @@ ModuleRepository.registerModule<PieChartParameterValues>({
       },
     });
 
-    function setupChart(container: HTMLDivElement) {
-      const myChart = echarts.init(container, 'dark');
+    const data = sourceDataState.data;
 
-      myChart.setOption({
-        color: ECHARTS_COLORS,
-        backgroundColor: ECHARTS_BACKGROUND_COLOR,
-        tooltip: {
-          trigger: 'item',
-        },
-        legend: {
-          orient: 'vertical',
-          left: 'left',
-        },
-        series: [
-          {
-            type: 'pie',
-            id: 'hello',
-            radius: '50%',
-            data: [],
-            emphasis: {
-              itemStyle: {
-                shadowBlur: 10,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)',
-              },
-            },
-            label: {
-              formatter: (params: any) => formatEmpty(params.name),
-            },
-          },
-        ],
-      });
+    // The selection is only valid for the data it was made on
+    const selectedName = selected && selected.data === data ? selected.name : undefined;
 
-      return myChart;
-    }
+    const getColor = (name: string) =>
+      splitColumn ? ColorAssigner.getColorForDimensionValue(splitColumn.name, name) : '#1890ff';
 
-    useEffect(() => {
-      return () => {
-        const myChart = chartRef.current;
-        if (!myChart) return;
-        myChart.dispose();
+    let chart: ReactNode;
+    let openOn: PortalBubbleOpenOn | undefined;
+    if (data && !stage.isInvalid()) {
+      const visibleData = data.filter(d => !hiddenNames.has(d.name));
+      const total = sum(visibleData, d => d.value);
+      const arcs = pie<PieDatum>()
+        .value(d => d.value)
+        .sort(null)(visibleData);
+
+      const cx = stage.width / 2;
+      const cy = stage.height / 2;
+      const radius = Math.min(stage.width, stage.height) / 4;
+      const arcFn = arc<PieArcDatum<PieDatum>>().innerRadius(0).outerRadius(radius);
+
+      // Returns the point on the outer edge of the slice at its middle angle (0 angle is 12 o'clock)
+      const pointOnSlice = (a: PieArcDatum<PieDatum>, r: number) => {
+        const angle = (a.startAngle + a.endAngle) / 2;
+        return { x: cx + Math.sin(angle) * r, y: cy - Math.cos(angle) * r };
       };
-    }, []);
 
-    // Called by ECharts, so it has to see the latest highlight and where clause, not the ones from when the data loaded
-    const handleSeriesClick = useEffectEvent((p: ECElementEvent) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-
-      if (highlight?.name === p.name) {
-        setHighlight(undefined);
-        return;
-      }
-
-      const centroid = getCentroid(myChart, p.dataIndex);
-      if (!centroid) return;
-
-      const { name, value, __isOthers } = p.data as any;
-
-      setHighlight({
-        title: formatEmpty(name),
-        x: centroid.x,
-        y: centroid.y - 20,
-        name,
-        dataIndex: p.dataIndex,
-        text: (
-          <>
-            {formatNumber(value)}
-            <div className="button-bar">
-              {!__isOthers && (
-                <Button
-                  text="Zoom in"
-                  intent={Intent.PRIMARY}
-                  size="small"
-                  onClick={() => {
-                    setWhere(updateFilterClause(where, C(splitColumn.name).equal(name)));
-                    setHighlight(undefined);
-                  }}
-                />
-              )}
-              <Button
-                text="Close"
-                size="small"
+      chart = (
+        <>
+          <g className="legend" transform="translate(10,10)">
+            {data.map((d, i) => (
+              <g
+                key={d.name}
+                className={classNames('legend-item', { hidden: hiddenNames.has(d.name) })}
+                transform={`translate(0,${i * LEGEND_ITEM_HEIGHT})`}
                 onClick={() => {
-                  setHighlight(undefined);
+                  const newHiddenNames = new Set(hiddenNames);
+                  if (newHiddenNames.has(d.name)) {
+                    newHiddenNames.delete(d.name);
+                  } else {
+                    newHiddenNames.add(d.name);
+                  }
+                  setHiddenNames(newHiddenNames);
                 }}
-              />
-            </div>
-          </>
-        ),
-      });
-    });
+              >
+                <rect x={0} y={2} width={20} height={12} rx={3} fill={getColor(d.name)} />
+                <text x={26} y={12}>
+                  {formatEmpty(d.name)}
+                </text>
+              </g>
+            ))}
+          </g>
+          {arcs.map(a => {
+            const { name } = a.data;
+            const color = getColor(name);
+            const edge = pointOnSlice(a, radius);
+            const elbow = pointOnSlice(a, radius + LABEL_OFFSET);
+            const isRight = elbow.x >= cx;
+            const labelX = elbow.x + (isRight ? LABEL_OFFSET : -LABEL_OFFSET);
+            return (
+              <g key={name}>
+                <path
+                  className={classNames('slice', { hovered: hoveredName === name })}
+                  d={arcFn(a)!}
+                  transform={`translate(${cx},${cy})`}
+                  fill={color}
+                  onMouseEnter={() => setHoveredName(name)}
+                  onMouseLeave={() => setHoveredName(undefined)}
+                  onClick={() => setSelected(selectedName === name ? undefined : { data, name })}
+                />
+                <polyline
+                  className="label-line"
+                  points={`${edge.x},${edge.y} ${elbow.x},${elbow.y} ${labelX},${elbow.y}`}
+                  stroke={color}
+                />
+                <text
+                  className="slice-label"
+                  x={labelX + (isRight ? 4 : -4)}
+                  y={elbow.y}
+                  dy="0.35em"
+                  textAnchor={isRight ? 'start' : 'end'}
+                >
+                  {formatEmpty(name)}
+                </text>
+              </g>
+            );
+          })}
+        </>
+      );
 
-    const updateChart = useEffectEvent((data: any[]) => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-
-      myChart.off('click');
-
-      const dataWithColors = data.map((item: any) => ({
-        ...item,
-        itemStyle: {
-          color: splitColumn
-            ? ColorAssigner.getColorForDimensionValue(splitColumn.name, item.name)
-            : '#1890ff',
-        },
-      }));
-
-      myChart.setOption({
-        series: [
-          {
-            id: 'hello',
-            data: dataWithColors,
-          },
-        ],
-      });
-
-      myChart.on('click', 'series', p => handleSeriesClick(p));
-    });
-
-    useEffect(() => {
-      const data = sourceDataState.data;
-      if (!data) return;
-      updateChart(data);
-    }, [sourceDataState.data]);
-
-    const handleStageChange = useEffectEvent(() => {
-      const myChart = chartRef.current;
-      if (!myChart) return;
-      myChart.resize();
-
-      // if there is a highlight, update its x position
-      // by calculating new pixel position from the highlight's data
-      if (highlight) {
-        const { dataIndex } = highlight;
-
-        const centroid = getCentroid(myChart, dataIndex);
-
-        if (!centroid) return;
-
-        setHighlight({
-          ...highlight,
-          x: centroid.x,
-          y: centroid.y - 20,
-        });
+      const bubbleName = selectedName ?? hoveredName;
+      const bubbleArc = arcs.find(a => a.data.name === bubbleName);
+      if (bubbleArc) {
+        const { name, value, __isOthers } = bubbleArc.data;
+        const edge = pointOnSlice(bubbleArc, radius);
+        openOn = {
+          title: formatEmpty(name),
+          x: edge.x,
+          y: edge.y - 20,
+          text: (
+            <>
+              {`${formatNumber(value)} (${formatPercent(total ? value / total : 0)})`}
+              {selectedName && (
+                <div className="button-bar">
+                  {!__isOthers && (
+                    <Button
+                      text="Zoom in"
+                      intent={Intent.PRIMARY}
+                      size="small"
+                      onClick={() => {
+                        setWhere(updateFilterClause(where, C(splitColumn.name).equal(name)));
+                        setSelected(undefined);
+                      }}
+                    />
+                  )}
+                  <Button text="Close" size="small" onClick={() => setSelected(undefined)} />
+                </div>
+              )}
+            </>
+          ),
+        };
       }
-    });
-
-    useEffect(() => {
-      handleStageChange();
-    }, [stage]);
+    }
 
     const errorMessage = sourceDataState.getErrorMessage();
     return (
       <div className="pie-chart-module module">
-        <div
-          className="echart-container"
-          ref={container => {
-            if (chartRef.current || !container) return;
-            containerRef.current = container;
-            chartRef.current = setupChart(container);
-          }}
-        />
+        <svg
+          className="chart-container"
+          ref={setSvgElement}
+          {...stage.toWidthHeight()}
+          viewBox={stage.toViewBox()}
+        >
+          {chart}
+        </svg>
         {errorMessage && <Issue issue={errorMessage} />}
         {sourceDataState.loading && (
           <Loader cancelText="Cancel query" onCancel={() => queryManager.cancelCurrent()} />
         )}
-        <PortalBubble
-          className="module-bubble"
-          openOn={highlight}
-          offsetElement={containerRef.current}
-        />
+        {svgElement && (
+          <PortalBubble
+            className="module-bubble"
+            openOn={openOn}
+            offsetElement={svgElement}
+            mute={!selectedName}
+          />
+        )}
       </div>
     );
   },

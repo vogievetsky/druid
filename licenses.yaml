@@ -6236,15 +6236,6 @@ license_file_path: licenses/bin/dunder-proto.MIT
 
 ---
 
-name: "echarts"
-license_category: binary
-module: web-console
-license_name: Apache License version 2.0
-copyright: Apache Software Foundation
-version: 6.1.0
-
----
-
 name: "error-ex"
 license_category: binary
 module: web-console
@@ -7091,16 +7082,6 @@ license_name: ISC License
 copyright: Eemeli Aro
 version: 1.10.3
 license_file_path: licenses/bin/yaml.ISC
-
----
-
-name: "zrender"
-license_category: binary
-module: web-console
-license_name: BSD-3-Clause License
-copyright: Baidu Inc.
-version: 6.1.0
-license_file_path: licenses/bin/zrender.BSD3
 
 ---
 
