@@ -17,6 +17,7 @@
  */
 
 import type { CompletionContext } from '@codemirror/autocomplete';
+import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 import { C, filterMap, N, T } from 'druid-query-toolkit';
@@ -26,6 +27,15 @@ import { completeSyntaxTree, tokenBefore } from '../components/code-editor/compl
 import { DEFAULT_SERVER_QUERY_CONTEXT } from '../druid-models';
 import { SQL_DATA_TYPES, SQL_FUNCTIONS } from '../editor-languages/dsql-docs';
 import { SQL_CONSTANTS, SQL_DYNAMICS, SQL_KEYWORDS } from '../editor-languages/dsql-keywords';
+import type { PipeContext } from '../editor-languages/dsql-pipe-syntax';
+import {
+  getPipeKeywords,
+  isAfterPipeSymbol,
+  nextPipeContext,
+  PIPE_OPERATOR_COMPLETIONS,
+  pipeContextAfterParentheses,
+  START_PIPE_CONTEXT,
+} from '../editor-languages/dsql-pipe-syntax';
 import type { AvailableFunctions } from '../helpers';
 import type { ColumnMetadata } from '../utils';
 import { lookupBy, uniq } from '../utils';
@@ -192,6 +202,18 @@ const COMMENT_NODES = new Set(['LineComment', 'BlockComment', 'Issue']);
 // The tokens that are words, the specializer in dsql-tokens.ts tells them apart
 const WORD_NODES = new Set(['Keyword', 'FunctionName', 'Constant', 'TypeName', 'Identifier']);
 
+// The other tokens (the pipe context tells the pipe symbol, parentheses and semicolons apart by their text)
+const OTHER_TOKEN_NODES = new Set([
+  'PipeSymbol',
+  '(',
+  ')',
+  'QuotedIdentifier',
+  'String',
+  'Number',
+  'Operator',
+  'Punctuation',
+]);
+
 /**
  * Whether a string literal or quoted identifier (the text of its token) is closed, an unterminated one lasts until the
  * end of the line
@@ -203,8 +225,12 @@ function isClosed(tokenText: string): boolean {
 /**
  * The last token (that is not a comment) that ends before the given position, it can be on an earlier line
  */
-function tokenEndingBefore(state: EditorState, pos: number): SyntaxNode | undefined {
-  const cursor = completeSyntaxTree(state).cursorAt(pos, -1);
+function tokenEndingBefore(
+  state: EditorState,
+  pos: number,
+  tree = completeSyntaxTree(state),
+): SyntaxNode | undefined {
+  const cursor = tree.cursorAt(pos, -1);
   do {
     const { node } = cursor;
     if (
@@ -218,6 +244,38 @@ function tokenEndingBefore(state: EditorState, pos: number): SyntaxNode | undefi
     }
   } while (cursor.prev());
   return;
+}
+
+/**
+ * Where the position is in the pipe operators: the pipe context after the tokens that end by it
+ */
+function pipeContextAt(state: EditorState, pos: number): PipeContext {
+  let pipeContext = START_PIPE_CONTEXT;
+  completeSyntaxTree(state).iterate({
+    to: pos,
+    enter: node => {
+      const { name, from, to } = node;
+      if (name === 'Parens' && to <= pos && node.node.lastChild?.name === ')') {
+        pipeContext = pipeContextAfterParentheses(pipeContext);
+        return false;
+      }
+      const isWord = WORD_NODES.has(name);
+      if (!isWord && !OTHER_TOKEN_NODES.has(name)) return; // Go into the PipeOperator (or other node)
+      if (to <= pos) pipeContext = nextPipeContext(pipeContext, state.sliceDoc(from, to), isWord);
+      return false;
+    },
+  });
+  return pipeContext;
+}
+
+/**
+ * Whether the position is after the pipe symbol and some space, where the pipe operators are suggested without a word
+ * being typed
+ */
+export function isAfterPipeSymbolAndSpace(state: EditorState, pos: number): boolean {
+  if (!/\s/.test(state.sliceDoc(pos - 1, pos))) return false;
+  // The tree that the editor has (the text near the cursor is parsed)
+  return tokenEndingBefore(state, pos, syntaxTree(state))?.name === 'PipeSymbol';
 }
 
 export interface SqlCompletionOptions {
@@ -277,6 +335,25 @@ export function getSqlCompletions(
     return []; // Don't start completing if the user is typing a number
   }
 
+  // Right after the pipe symbol comes the name of a pipe operator
+  const pipeContext = pipeContextAt(state, quote ? from - 1 : from);
+  if (isAfterPipeSymbol(pipeContext)) {
+    if (quote) return [];
+    return PIPE_OPERATOR_COMPLETIONS.map(({ label, operator }, i) => ({
+      label,
+      boost: -i, // In the order of the docs
+      detail: 'pipe operator',
+      doc: { name: label, syntax: operator.syntax, description: operator.description },
+    }));
+  }
+
+  // In a pipe operator, where only some keywords can come
+  const pipeKeywords = getPipeKeywords(pipeContext);
+  if (pipeKeywords?.only) {
+    if (quote) return [];
+    return pipeKeywords.keywords.map(label => ({ label, boost: 10, detail: 'keyword' }));
+  }
+
   const possibleReferences = getPossibleSqlReferences(state, 100, prefix);
 
   let completions: EditorCompletion[] = possibleReferences.map(label => ({
@@ -286,16 +363,26 @@ export function getSqlCompletions(
   }));
 
   if (!quote) {
+    const followSuggestions =
+      SQL_KEYWORD_PAIR_FOLLOW_SUGGESTIONS[keywordsBeforePrefix || ''] ||
+      SQL_KEYWORD_FOLLOW_SUGGESTIONS[keywordBeforePrefix || ''];
+
+    // The keywords of the pipe operator (that can come anywhere in it) go first
+    const pipeClauses = followSuggestions ? [] : pipeKeywords?.keywords || [];
+
     completions = completions.concat(
-      (
-        SQL_KEYWORD_PAIR_FOLLOW_SUGGESTIONS[keywordsBeforePrefix || ''] ||
-        SQL_KEYWORD_FOLLOW_SUGGESTIONS[keywordBeforePrefix || ''] ||
-        SQL_KEYWORDS
-      ).map(v => ({
+      pipeClauses.map(v => ({
         label: v,
-        boost: 10,
+        boost: 15,
         detail: 'keyword',
       })),
+      (followSuggestions || SQL_KEYWORDS)
+        .filter(v => !pipeClauses.includes(v))
+        .map(v => ({
+          label: v,
+          boost: 10,
+          detail: 'keyword',
+        })),
       SQL_CONSTANTS.map(v => ({ label: v, boost: 11, detail: 'constant' })),
       Array.from(SQL_DATA_TYPES.entries()).map(([name, [runtime, description]]) => {
         return {
@@ -401,7 +488,8 @@ export function getSqlCompletions(
     }
   }
 
-  if (keywordBeforePrefix === 'SET') {
+  // SET statements set the query context (unlike the SET pipe operator)
+  if (keywordBeforePrefix === 'SET' && !pipeContext.operator) {
     completions = completions.concat(
       Object.keys(DEFAULT_SERVER_QUERY_CONTEXT).map(key => ({
         label: quote ? key : String(C(key)),

@@ -120,7 +120,9 @@ The saved states are kept inside `code-editor.tsx`. Call `forgetEditorState(id)`
 The completions come with the language: `dsql(...)` always completes and `hjson({ jsonCompletions })` completes when
 given rules. Each attaches a CodeMirror completion source as language data (`language.data.of({ autocomplete })`), so
 switching the language switches the completions. Suggestions appear as the user types a word, and Ctrl-Space opens the
-list on demand. Enter or Tab accepts the selected one. Read-only editors don't complete.
+list on demand. Enter or Tab accepts the selected one. Read-only editors don't complete. DruidSQL also opens the list of
+pipe operators as soon as a space is typed after the pipe symbol (`|>`): `makeCompletionSource` takes a
+`startWithoutWord(state, pos)` for the places where the list opens without a word being typed.
 
 The completion builders in `src/editor-completions/` (`getSqlCompletions`, `getHjsonCompletions`) are
 `EditorCompletionBuilder`s. `makeCompletionSource` (`completion-source.ts`) turns one into a completion source: it
@@ -140,7 +142,14 @@ tree that the language builds (`tokenBefore(state, pos)` in `completion-source.t
 `LineComment` or `String`) instead of looking for `--` or quotes in the text. Builders that look at the whole text
 (the SQL references and literals, the Hjson context) use `completeSyntaxTree(state)`, which parses the rest of the
 text if the editor has not yet. In specs, `completionContextAt(dsql(),
-'SELECT * FROM t WHERE |')` (`src/test-utils/completion-context.ts`) makes the context for the cursor at the `|`.
+'SELECT * FROM t WHERE |')` (`src/test-utils/completion-context.ts`) makes the context for the cursor at the `|` (the
+first one that is not a pipe symbol, so `'FROM t |> |'` works).
+
+In pipe operators (see `GLOSSARY.md` for the terms of pipe syntax), `getSqlCompletions` replays the tokens before the
+word through the same pipe context that the highlighting uses (see [Languages](#languages)). Right after the pipe symbol
+it suggests the pipe operators (with their syntax in the doc panel), where only some keywords can come it suggests just
+those (`|> UNION` is followed by `ALL` or `DISTINCT`), and elsewhere in a pipe operator it puts the keywords of that
+operator first (like `GROUP BY` in `AGGREGATE`).
 
 A builder returns `EditorCompletion`s (from `src/editor-completions/editor-completion.ts`):
 
@@ -236,8 +245,8 @@ of a language and the extensions that go with it:
 
 - **`dsql({ availableSqlFunctions, columnMetadata, columns, skipAggregates })`** (DruidSQL): Keywords, functions,
   data types and constants come from `dsql-keywords.ts` and `dsql-docs.ts`, plus the `availableSqlFunctions` that the
-  cluster reports (from `useAvailableSqlFunctions()`). Double-quoted references (`"column"`) and `--:ISSUE:` comments
-  get their own colors. It auto-closes `(`, `[`, `'` and `"` (not `{`), and Cmd/Ctrl-/ toggles `--` comments. The
+  cluster reports (from `useAvailableSqlFunctions()`). Double-quoted references (`"column"`), `--:ISSUE:` comments and
+  the pipe symbol (`|>`) get their own colors. It auto-closes `(`, `[`, `'` and `"` (not `{`), and Cmd/Ctrl-/ toggles `--` comments. The
   options are passed on to `getSqlCompletions`. Each call makes a new `LanguageSupport`, so memoize it.
 - **`hjson({ jsonCompletions })`** (Hjson/JSON): highlights keys, strings, numbers, escapes and `#`, `//` and `/* */`
   comments, including objects without the outer braces. It returns the same object for the same `jsonCompletions`,
@@ -253,6 +262,17 @@ Both languages are Lezer grammars (`dsql.grammar`, `hjson.grammar` in `src/edito
   (`parser.configure({ specializers })`), one language per set of functions (and the same one for the same set). When
   the functions arrive, the editors that are open re-highlight right away. String literals and quoted identifiers do
   not span lines: one that is not closed yet lasts until the end of the line. A sign (`-1`) is an operator.
+
+  The one part of the statements that it does parse is pipe syntax (Druid doesn't run it yet, but the console
+  highlights and completes all of it): a `PipeOperator` is a `PipeSymbol` (`|>`) and the tokens after it, up to the
+  next pipe symbol, semicolon or closing parenthesis. Words that only pipe syntax has (`AGGREGATE`, `DROP`, or `NAME`
+  in `|> UNION ALL BY NAME`) are keywords only in their place in a pipe operator, so `SELECT name, drop FROM t` stays
+  as it was. A context tracker (`trackPipeContext` in `dsql-tokens.ts`, declared with `@context` in the grammar)
+  follows where the parser is in the pipe operators, and the specializer asks it (`isPipeKeyword`). The pipe operators,
+  their keywords and where those go are in `dsql-pipe-syntax.ts`, taken from the
+  [GoogleSQL pipe syntax docs](https://github.com/google/googlesql/blob/master/docs/pipe-syntax.md). The completions
+  use the same table.
+
 - **Hjson** is parsed for real: `Object`s of `Property`s (a `PropertyName` and a value), `Array`s, the root object
   without braces, the kinds of strings (with `Escape`s) and comments. The two parts of Hjson that depend on the
   context, keys without quotes and quoteless strings (which last until the end of the line, unless the line is just a

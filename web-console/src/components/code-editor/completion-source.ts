@@ -85,12 +85,19 @@ function toCompletion({ doc, ...completion }: EditorCompletion): Completion {
 }
 
 /**
- * Makes a CodeMirror completion source out of a completion builder (like getSqlCompletions)
+ * Makes a CodeMirror completion source out of a completion builder (like getSqlCompletions). It completes once a word is
+ * being typed (or when asked for), and right away at the positions where `startWithoutWord` says so.
  */
-export function makeCompletionSource(build: EditorCompletionBuilder): CompletionSource {
+export function makeCompletionSource(
+  build: EditorCompletionBuilder,
+  startWithoutWord?: (state: EditorState, pos: number) => boolean,
+): CompletionSource {
   return (context): CompletionResult | null => {
-    if (context.state.readOnly) return null;
-    const word = matchCompletionWord(context);
+    const { state, pos } = context;
+    if (state.readOnly) return null;
+    const word =
+      matchCompletionWord(context) ||
+      (startWithoutWord?.(state, pos) ? { from: pos, text: '' } : undefined);
     if (!word) return null;
 
     const options = build(context, word).map(toCompletion);

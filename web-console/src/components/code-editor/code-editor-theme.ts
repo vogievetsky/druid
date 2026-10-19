@@ -211,6 +211,7 @@ export const codeEditorHighlightStyle = HighlightStyle.define([
   { tag: [tags.atom, tags.escape], color: '#facd14' },
   { tag: tags.typeName, color: '#49f943' },
   { tag: tags.number, color: '#f256bc' },
+  { tag: editorTags.pipeSymbol, color: '#d54ca5' },
   { tag: tags.string, color: '#4deee1' },
   { tag: tags.comment, color: '#9ab8c3', fontStyle: 'italic' },
   {

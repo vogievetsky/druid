@@ -60,6 +60,8 @@ The Apache Druid web console: a React + TypeScript single page app built with Bl
 
 ## Where things are
 
+- `GLOSSARY.md` - the terms of the console's domain (like the parts of pipe syntax). Use them in code and docs.
+
 - `src/views/` - one folder per top-level view (`workbench-view` is the SQL editor, `explore-view`,
   `load-data-view`, `datasources-view`, ...), `src/dialogs/`, `src/components/` - the UI.
 - `src/druid-models/` - TypeScript models of Druid concepts (ingestion specs, tasks, queries) and their `AutoForm`

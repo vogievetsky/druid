@@ -330,6 +330,149 @@ describe('sql-completions', () => {
     });
   });
 
+  describe('getSqlCompletions in pipe operators', () => {
+    function completionsAt(textWithCursor: string, options?: SqlCompletionOptions) {
+      const [context, word] = completionContextAt(dsql(), textWithCursor);
+      return getSqlCompletions(context, word, options);
+    }
+
+    // The keywords suggested with the cursor at the |
+    function keywordsAt(textWithCursor: string): string[] {
+      return completionsAt(textWithCursor)
+        .filter(c => c.detail === 'keyword')
+        .map(c => c.label);
+    }
+
+    it('suggests only the pipe operators right after the pipe symbol', () => {
+      const completions = completionsAt('FROM t\n|> |', { columns: ['my_column'] });
+      expect(completions.every(c => c.detail === 'pipe operator')).toBe(true);
+      expect(completions.map(c => c.label)).toEqual(
+        expect.arrayContaining([
+          'SELECT',
+          'AGGREGATE',
+          'ORDER BY',
+          'LEFT JOIN',
+          'UNION ALL',
+          'RECURSIVE UNION ALL',
+          'CREATE TABLE',
+          'EXPORT DATA',
+          'FINISH',
+        ]),
+      );
+      expect(completions.map(c => c.label)).not.toContain('GROUP BY');
+
+      // In the order of the docs
+      expect(completions.slice(0, 3).map(c => c.label)).toEqual(['SELECT', 'EXTEND', 'SET']);
+      expect(completions[0].boost).toBeGreaterThan(completions[1].boost!);
+
+      expect(completions.find(c => c.label === 'AGGREGATE')?.doc).toEqual({
+        name: 'AGGREGATE',
+        syntax: expect.stringContaining('|> AGGREGATE'),
+        description: expect.stringContaining('Aggregates'),
+      });
+
+      // While the name is typed, and in a subpipeline
+      expect(completionsAt('FROM t |> AGG|')[0].detail).toEqual('pipe operator');
+      expect(completionsAt('FROM t |> IF a THEN (|> |')[0].detail).toEqual('pipe operator');
+      expect(completionsAt('FROM t |> "|')).toEqual([]);
+    });
+
+    it('suggests the rest of an operator name', () => {
+      expect(keywordsAt('FROM t |> ORDER |')).toEqual(['BY']);
+      expect(keywordsAt('FROM t |> LEFT |')).toEqual([
+        'JOIN',
+        'OUTER',
+        'UNION',
+        'INTERSECT',
+        'EXCEPT',
+      ]);
+      expect(keywordsAt('FROM t |> FULL OUTER |')).toEqual([
+        'JOIN',
+        'UNION',
+        'INTERSECT',
+        'EXCEPT',
+      ]);
+      expect(keywordsAt('FROM t |> RECURSIVE |')).toEqual(['UNION']);
+      expect(
+        completionsAt('FROM t |> ORDER |', { columns: ['my_column'] }).map(c => c.label),
+      ).toEqual(['BY']);
+    });
+
+    it('suggests only the keywords that can come next when nothing else can', () => {
+      expect(keywordsAt('FROM t |> UNION |')).toEqual(['ALL', 'DISTINCT']);
+      expect(keywordsAt('FROM t |> LEFT OUTER EXCEPT |')).toEqual(['ALL', 'DISTINCT']);
+      expect(keywordsAt('FROM t |> UNION ALL |')).toEqual([
+        'BY NAME',
+        'STRICT CORRESPONDING',
+        'CORRESPONDING',
+      ]);
+      expect(keywordsAt('FROM t |> UNION ALL BY |')).toEqual(['NAME']);
+      expect(keywordsAt('FROM t |> UNION ALL STRICT |')).toEqual(['CORRESPONDING']);
+      expect(keywordsAt('FROM t |> LEFT OUTER UNION ALL |')).toEqual(['BY NAME', 'CORRESPONDING']);
+      expect(keywordsAt('FROM t |> UNION ALL CORRESPONDING BY |')).toEqual([]);
+      expect(keywordsAt('FROM t |> RECURSIVE UNION DISTINCT |')).toEqual(['BY NAME']);
+      expect(keywordsAt('FROM t |> AGGREGATE COUNT(*) GROUP |')).toEqual(['BY', 'AND ORDER BY']);
+      expect(keywordsAt('FROM t |> AGGREGATE COUNT(*) GROUP AND |')).toEqual(['ORDER BY']);
+      expect(keywordsAt('FROM t |> TABLESAMPLE |')).toEqual(['BERNOULLI', 'SYSTEM', 'RESERVOIR']);
+      expect(keywordsAt('FROM t |> WITH |')).toEqual(['RECURSIVE']);
+      expect(keywordsAt('FROM t |> CREATE |')).toEqual([
+        'OR REPLACE',
+        'TEMP',
+        'TEMPORARY',
+        'TABLE',
+      ]);
+      expect(keywordsAt('FROM t |> CREATE OR |')).toEqual(['REPLACE']);
+      expect(keywordsAt('FROM t |> CREATE TABLE IF |')).toEqual(['NOT EXISTS']);
+      expect(keywordsAt('FROM t |> INSERT |')).toEqual(['OR', 'IGNORE', 'INTO']);
+      expect(keywordsAt('FROM t |> INSERT OR |')).toEqual(['IGNORE', 'REPLACE', 'UPDATE']);
+      expect(keywordsAt('FROM t |> MATCH_RECOGNIZE (ORDER BY a AFTER MATCH SKIP |')).toEqual([
+        'PAST LAST ROW',
+        'TO NEXT ROW',
+      ]);
+    });
+
+    it('suggests the keywords of the pipe operator first', () => {
+      const completions = completionsAt('FROM t |> AGGREGATE COUNT(*) AS c |');
+      expect(completions.filter(c => c.boost === 15).map(c => c.label)).toEqual([
+        'GROUP BY',
+        'GROUP AND ORDER BY',
+        'AS',
+        'ASC',
+        'DESC',
+        'NULLS FIRST',
+        'NULLS LAST',
+      ]);
+      expect(completions.filter(c => c.label === 'GROUP BY')).toHaveLength(1);
+      expect(completions.map(c => c.label)).toContain('COUNT'); // And the rest as usual
+
+      expect(keywordsAt('FROM t |> LIMIT 10 |')).toContain('OFFSET');
+      expect(keywordsAt('FROM t |> TABLESAMPLE SYSTEM (10 |')).toContain('PERCENT');
+      expect(keywordsAt('FROM t |> IF a THEN (|> WHERE b) |')).toContain('ELSEIF');
+    });
+
+    it('suggests what comes after a keyword as usual', () => {
+      expect(keywordsAt('FROM t |> SELECT |')).toEqual(['DISTINCT', 'ALL']);
+      expect(keywordsAt('FROM t |> ORDER BY x DESC |')).toEqual(['NULLS']);
+      expect(keywordsAt('FROM t |> LIMIT |')).toEqual([]);
+    });
+
+    it('does not use the pipe operator outside of it', () => {
+      // In a query in parentheses
+      expect(keywordsAt('FROM t |> UNION ALL (SELECT * FROM u GROUP |')).toEqual(['BY']);
+      expect(keywordsAt('FROM t |> AGGREGATE COUNT(*) AS c; SELECT |')).toEqual([
+        'DISTINCT',
+        'ALL',
+      ]);
+      expect(keywordsAt('SELECT * FROM t GROUP |')).toEqual(['BY']);
+    });
+
+    it('suggests columns rather than context keys after the SET pipe operator', () => {
+      const completions = completionsAt('FROM t |> SET |', { columns: ['my_column'] });
+      expect(completions.map(c => c.label)).toContain('"my_column"');
+      expect(completions.filter(c => c.detail === 'context')).toEqual([]);
+    });
+  });
+
   describe('getSqlLiterals', () => {
     it('extracts string literals from SQL text', () => {
       const sqlText =

@@ -23,7 +23,10 @@ import { styleTags, tags } from '@lezer/highlight';
 
 import { makeCompletionSource } from '../components/code-editor/completion-source';
 import type { SqlCompletionOptions } from '../editor-completions/sql-completions';
-import { getSqlCompletions } from '../editor-completions/sql-completions';
+import {
+  getSqlCompletions,
+  isAfterPipeSymbolAndSpace,
+} from '../editor-completions/sql-completions';
 import type { AvailableFunctions } from '../helpers';
 
 import { parser } from './dsql.parser';
@@ -42,6 +45,7 @@ const dsqlHighlighting = styleTags({
   'LineComment': tags.lineComment,
   'BlockComment': tags.blockComment,
   'Operator': tags.operator,
+  'PipeSymbol': editorTags.pipeSymbol,
   '( )': tags.paren,
 });
 
@@ -52,7 +56,7 @@ function makeDsqlLanguage(availableSqlFunctions: AvailableFunctions | undefined)
       props: [
         dsqlHighlighting,
         // A new line keeps the indentation of the line before (rather than indenting inside parentheses)
-        indentNodeProp.add({ 'Script Parens': () => null }),
+        indentNodeProp.add({ 'Script Parens PipeOperator': () => null }),
       ],
       specializers: availableSqlFunctions
         ? [{ from: specializeIdentifier, to: makeIdentifierSpecializer(availableSqlFunctions) }]
@@ -94,8 +98,10 @@ export function dsql(options: DsqlOptions = {}): LanguageSupport {
   const language = getDsqlLanguage(options.availableSqlFunctions);
   return new LanguageSupport(language, [
     language.data.of({
-      autocomplete: makeCompletionSource((context, word) =>
-        getSqlCompletions(context, word, options),
+      autocomplete: makeCompletionSource(
+        (context, word) => getSqlCompletions(context, word, options),
+        // The pipe operators are suggested as soon as a space is typed after the pipe symbol
+        isAfterPipeSymbolAndSpace,
       ),
     }),
     closeBrackets(),

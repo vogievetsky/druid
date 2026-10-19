@@ -24,4 +24,5 @@ import { Tag, tags } from '@lezer/highlight';
 export const editorTags = {
   issue: Tag.define(tags.comment),
   column: Tag.define(tags.variableName),
+  pipeSymbol: Tag.define(tags.operator),
 };

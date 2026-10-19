@@ -21,11 +21,14 @@ import { CompletionContext } from '@codemirror/autocomplete';
 import type { Language } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
 import { EditorState } from '@codemirror/state';
-import { highlightTree, tags } from '@lezer/highlight';
+import { TreeFragment } from '@lezer/common';
+import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
 
 import { codeEditorHighlightStyle } from '../components/code-editor/code-editor-theme';
 
 import { dsql, getDsqlLanguage } from './dsql';
+import { PIPE_OPERATOR_COMPLETIONS } from './dsql-pipe-syntax';
+import { editorTags } from './editor-tags';
 import { hjson, hjsonLanguage } from './hjson';
 
 const dsqlLanguage = getDsqlLanguage();
@@ -109,6 +112,262 @@ line */ SELECT`;
       'FunctionName',
     );
     expect(getDsqlLanguage(availableSqlFunctions)).toBe(getDsqlLanguage(availableSqlFunctions));
+  });
+
+  describe('pipe syntax', () => {
+    // The words and what they are
+    function words(text: string): string[] {
+      return tokenize(dsqlLanguage, text)
+        .filter(([type, value]) => /^\w+$/.test(value) && type !== 'Number')
+        .map(([type, value]) => `${type === 'Keyword' ? 'K' : type[0]}:${value}`);
+    }
+
+    it('highlights the pipe symbol', () => {
+      expect(tokenize(dsqlLanguage, 'FROM t|>WHERE a | b')).toEqual([
+        ['Keyword', 'FROM'],
+        ['Identifier', 't'],
+        ['PipeOperator', '|>WHERE a | b'],
+        ['PipeSymbol', '|>'],
+        ['Keyword', 'WHERE'],
+        ['Identifier', 'a'],
+        ['Operator', '|'],
+        ['Identifier', 'b'],
+      ]);
+
+      // In a color of its own, and like an operator elsewhere
+      const sql = 'FROM t |> WHERE a';
+      const classes = new Map<string, string>();
+      highlightTree(dsqlLanguage.parser.parse(sql), codeEditorHighlightStyle, (from, to, cls) => {
+        classes.set(sql.slice(from, to), cls);
+      });
+      expect(classes.get('|>')).toEqual(codeEditorHighlightStyle.style([editorTags.pipeSymbol]));
+      expect(classes.get('|>')).not.toEqual(codeEditorHighlightStyle.style([tags.number]));
+
+      const operatorClasses = new Map<string, string>();
+      const highlighter = tagHighlighter([{ tag: tags.operator, class: 'operator' }]);
+      highlightTree(dsqlLanguage.parser.parse(sql), highlighter, (from, to, cls) => {
+        operatorClasses.set(sql.slice(from, to), cls);
+      });
+      expect(operatorClasses.get('|>')).toEqual('operator');
+    });
+
+    it('ends a pipe operator at the next pipe symbol, semicolon or closing parenthesis', () => {
+      const pipeOperators = (text: string) =>
+        tokenize(dsqlLanguage, text)
+          .filter(([type]) => type === 'PipeOperator')
+          .map(([, value]) => value);
+
+      expect(pipeOperators('FROM t |> WHERE a |> SELECT b; SELECT 1')).toEqual([
+        '|> WHERE a',
+        '|> SELECT b',
+      ]);
+      expect(pipeOperators('SELECT * FROM (FROM t |> WHERE a) AS x |> SELECT (b)')).toEqual([
+        '|> WHERE a',
+        '|> SELECT (b)',
+      ]);
+    });
+
+    it('leaves the words of pipe syntax alone outside of pipe operators', () => {
+      expect(words('SELECT name, drop, aggregate, data, options FROM t; SELECT pattern')).toEqual([
+        'K:SELECT',
+        'I:name',
+        'I:drop',
+        'I:aggregate',
+        'I:data',
+        'I:options',
+        'K:FROM',
+        'I:t',
+        'K:SELECT',
+        'I:pattern',
+      ]);
+    });
+
+    it('highlights the words of pipe syntax only in their place', () => {
+      expect(
+        words('FROM t |> AGGREGATE COUNT(*) AS drop |> DROP drop, name |> WHERE name = 1'),
+      ).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:AGGREGATE',
+        'F:COUNT',
+        'K:AS',
+        'I:drop',
+        'K:DROP',
+        'I:drop',
+        'I:name',
+        'K:WHERE',
+        'I:name',
+      ]);
+
+      // NAME is a keyword after BY, but not in the query in parentheses
+      expect(
+        words('FROM t |> UNION ALL BY NAME (SELECT name FROM u GROUP BY name), (TABLE name)'),
+      ).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:UNION',
+        'K:ALL',
+        'K:BY',
+        'K:NAME',
+        'K:SELECT',
+        'I:name',
+        'K:FROM',
+        'I:u',
+        'K:GROUP',
+        'K:BY',
+        'I:name',
+        'F:TABLE', // As everywhere but in CREATE TABLE
+        'I:name',
+      ]);
+
+      expect(
+        words(
+          'FROM t |> INTERSECT DISTINCT STRICT CORRESPONDING BY (strict) (SELECT strict FROM u)',
+        ),
+      ).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:INTERSECT',
+        'K:DISTINCT',
+        'K:STRICT',
+        'K:CORRESPONDING',
+        'K:BY',
+        'I:strict',
+        'K:SELECT',
+        'I:strict',
+        'K:FROM',
+        'I:u',
+      ]);
+
+      // TABLE is otherwise a function
+      expect(
+        words('FROM t |> CREATE OR REPLACE TEMP TABLE IF NOT EXISTS options OPTIONS (x = 1)'),
+      ).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:CREATE',
+        'K:OR',
+        'K:REPLACE',
+        'K:TEMP',
+        'K:TABLE',
+        'K:IF',
+        'K:NOT',
+        'K:EXISTS',
+        'I:options',
+        'K:OPTIONS',
+        'I:x',
+      ]);
+    });
+
+    it('highlights the keywords in the parentheses of the pipe operators that have them', () => {
+      expect(words('FROM t |> TABLESAMPLE SYSTEM (1 PERCENT) |> WHERE x IN (percent)')).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:TABLESAMPLE',
+        'K:SYSTEM',
+        'K:PERCENT',
+        'K:WHERE',
+        'I:x',
+        'K:IN',
+        'I:percent',
+      ]);
+
+      expect(
+        words(`FROM t
+|> MATCH_RECOGNIZE (
+  ORDER BY ts
+  MEASURES COUNT(*) AS n
+  AFTER MATCH SKIP PAST LAST ROW
+  PATTERN (up down)
+  DEFINE up AS price > 1
+)`),
+      ).toEqual([
+        'K:FROM',
+        'I:t',
+        'K:MATCH_RECOGNIZE',
+        'K:ORDER',
+        'K:BY',
+        'I:ts',
+        'K:MEASURES',
+        'F:COUNT',
+        'K:AS',
+        'I:n',
+        'K:AFTER',
+        'K:MATCH',
+        'K:SKIP',
+        'K:PAST',
+        'K:LAST',
+        'K:ROW',
+        'K:PATTERN',
+        'I:up',
+        'I:down',
+        'K:DEFINE',
+        'I:up',
+        'K:AS',
+        'I:price',
+      ]);
+    });
+
+    it('highlights subpipelines', () => {
+      expect(words('FROM t |> IF a THEN (|> DROP b) ELSEIF c THEN () ELSE ( |> WHERE d )')).toEqual(
+        [
+          'K:FROM',
+          'I:t',
+          'K:IF',
+          'I:a',
+          'K:THEN',
+          'K:DROP',
+          'I:b',
+          'K:ELSEIF',
+          'I:c',
+          'K:THEN',
+          'K:ELSE',
+          'K:WHERE',
+          'I:d',
+        ],
+      );
+    });
+
+    it('highlights the names of all the pipe operators', () => {
+      for (const { label } of PIPE_OPERATOR_COMPLETIONS) {
+        const sql = `FROM t |> ${label.toLowerCase()} x`;
+        expect([sql, words(sql)]).toEqual([
+          sql,
+          [
+            'K:FROM',
+            'I:t',
+            ...label
+              .toLowerCase()
+              .split(' ')
+              .map(w => `K:${w}`),
+            'I:x',
+          ],
+        ]);
+      }
+    });
+
+    it('highlights the same after an edit as after parsing from scratch', () => {
+      const text = `FROM t
+|> UNPIVOT (v FOR n IN (a, b)) include
+|> UNION ALL BY NAME (SELECT name FROM u)
+|> AGGREGATE COUNT(*) AS c GROUP AND ORDER BY name DESC
+|> CREATE TABLE IF NOT EXISTS options (a INT) OPTIONS (x = 1)`;
+      // Small buffers so that the nodes of a short text are reused
+      const parser = dsqlLanguage.parser.configure({ bufferLength: 2 });
+      const tree = parser.parse(text);
+      for (let at = 0; at <= text.length; at++) {
+        for (const insert of [' ', 'x', '(', ')', '|>', ';']) {
+          const newText = text.slice(0, at) + insert + text.slice(at);
+          const fragments = TreeFragment.applyChanges(TreeFragment.addTree(tree), [
+            { fromA: at, toA: at, fromB: at, toB: at + insert.length },
+          ]);
+          expect([newText, parser.parse(newText, fragments).toString()]).toEqual([
+            newText,
+            parser.parse(newText).toString(),
+          ]);
+        }
+      }
+    });
   });
 
   it('highlights Hjson', () => {
@@ -207,7 +466,7 @@ dataSource: wikipedia`;
       textWithCursor: string,
       readOnly = false,
     ): string[] | undefined {
-      const pos = textWithCursor.indexOf('|');
+      const pos = textWithCursor.search(/\|(?!>)/);
       const state = EditorState.create({
         doc: textWithCursor.slice(0, pos) + textWithCursor.slice(pos + 1),
         extensions: [extension, EditorState.readOnly.of(readOnly)],
@@ -232,6 +491,14 @@ dataSource: wikipedia`;
       expect(complete(hjson({ jsonCompletions }), '{\n  que|')).toEqual(['queryType']);
       expect(hjson({ jsonCompletions })).toBe(hjson({ jsonCompletions }));
       expect(complete(hjson(), '{\n  que|')).toBeUndefined();
+    });
+
+    it('starts right after the pipe symbol and a space with dsql', () => {
+      expect(complete(dsql(), 'FROM t |> |')).toContain('AGGREGATE');
+      expect(complete(dsql(), 'FROM t\n|>\n|')).toContain('WHERE');
+      expect(complete(dsql(), 'FROM t |>|')).toBeUndefined();
+      expect(complete(dsql(), 'FROM t |> WHERE |')).toBeUndefined();
+      expect(complete(dsql(), "SELECT '|> |")).toBeUndefined();
     });
 
     it('is off in read only editors', () => {
