@@ -43,6 +43,20 @@ describe('sub-query-markers', () => {
     expect(findSubQueries('SELECT 1')).toEqual([]);
   });
 
+  it('finds FROM-first queries', () => {
+    expect(findSubQueries('SELECT 1;\nFROM t\n|> WHERE x').map(slice => slice.sql)).toEqual([
+      'SELECT 1;',
+      'FROM t\n|> WHERE x',
+    ]);
+    expect(findSubQueries('FROM t\n|> WHERE x')).toEqual([]);
+    expect(
+      findSubQueries('FROM t\n|> SELECT a\n|> UNION ALL (\n  FROM u\n)').map(slice => [
+        slice.startLineColumn.line,
+        slice.sql,
+      ]),
+    ).toEqual([[4, 'FROM u']]);
+  });
+
   it('marks the lines where the queries start and keeps them up to date', () => {
     let state = State.create({ doc: TEXT, extensions: subQueryMarkers(() => {}) });
     expect(markerLines(state)).toEqual([2, 3]);

@@ -841,6 +841,123 @@ describe('sql', () => {
     });
   });
 
+  describe('findAllSqlQueriesInText with pipe syntax', () => {
+    const queriesIn = (text: string) =>
+      findAllSqlQueriesInText(text).map(({ sql, startLineColumn }) => [startLineColumn.line, sql]);
+
+    it('finds FROM-first queries', () => {
+      expect(queriesIn('FROM wikipedia')).toEqual([[1, 'FROM wikipedia']]);
+
+      expect(
+        queriesIn(sane`
+          SELECT 1;
+          FROM wikipedia AS w
+          LEFT JOIN t USING (k)
+          |> WHERE channel = '#en.wikipedia' -- A comment
+          |> AGGREGATE COUNT(*) AS cnt GROUP AND ORDER BY page;
+
+          FROM t
+        `),
+      ).toEqual([
+        [1, 'SELECT 1;'],
+        [
+          2,
+          sane`
+            FROM wikipedia AS w
+            LEFT JOIN t USING (k)
+            |> WHERE channel = '#en.wikipedia' -- A comment
+            |> AGGREGATE COUNT(*) AS cnt GROUP AND ORDER BY page;
+          `,
+        ],
+        [7, 'FROM t'],
+      ]);
+    });
+
+    it('finds FROM-first queries in parentheses', () => {
+      expect(
+        queriesIn(sane`
+          SELECT *
+          FROM (
+            FROM t
+            |> WHERE x IN (SELECT y FROM u)
+          )
+          |> UNION ALL (
+            FROM u |> DROP k
+          )
+        `),
+      ).toEqual([
+        [
+          1,
+          sane`
+            SELECT *
+            FROM (
+              FROM t
+              |> WHERE x IN (SELECT y FROM u)
+            )
+            |> UNION ALL (
+              FROM u |> DROP k
+            )
+          `,
+        ],
+        [3, 'FROM t\n  |> WHERE x IN (SELECT y FROM u)'],
+        [4, 'SELECT y FROM u'],
+        [7, 'FROM u |> DROP k'],
+      ]);
+    });
+
+    it('does not find a query in the FROM clause of a query', () => {
+      expect(queriesIn('SELECT *\nFROM t\nWHERE x = 1')).toEqual([
+        [1, 'SELECT *\nFROM t\nWHERE x = 1'],
+      ]);
+    });
+
+    it('goes on to the pipe operators after a query', () => {
+      expect(
+        queriesIn(sane`
+          SET timeout = 100;
+          SELECT * FROM t
+          |> SELECT a, b
+          |> SET a = 1
+          |> WITH x AS (SELECT 1)
+          |> INSERT INTO u
+        `),
+      ).toEqual([
+        [
+          1,
+          sane`
+            SET timeout = 100;
+            SELECT * FROM t
+            |> SELECT a, b
+            |> SET a = 1
+            |> WITH x AS (SELECT 1)
+            |> INSERT INTO u
+          `,
+        ],
+        [5, 'SELECT 1'],
+      ]);
+    });
+
+    it('finds the queries with pipe operators that the toolkit does not parse', () => {
+      expect(
+        queriesIn(sane`
+          WITH w AS (FROM t |> TABLESAMPLE SYSTEM (10 PERCENT))
+          FROM w
+          |> PIVOT (SUM(x) FOR y IN (1, 2))
+        `),
+      ).toEqual([
+        [
+          1,
+          sane`
+            WITH w AS (FROM t |> TABLESAMPLE SYSTEM (10 PERCENT))
+            FROM w
+            |> PIVOT (SUM(x) FOR y IN (1, 2))
+          `,
+        ],
+        [1, 'FROM t |> TABLESAMPLE SYSTEM (10 PERCENT)'],
+      ]);
+    });
+  });
+
   describe('smartTimeFloor', () => {
     const timestampColumn = C('__time');
 

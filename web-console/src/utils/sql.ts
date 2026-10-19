@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+import type { SyntaxNode } from '@lezer/common';
 import type { SqlBase } from 'druid-query-toolkit';
 import {
   F,
@@ -28,6 +29,8 @@ import {
   SqlSetStatement,
   SqlStar,
 } from 'druid-query-toolkit';
+
+import { parser as dsqlParser } from '../editor-languages/dsql.parser';
 
 import type { LineColumn } from './general';
 import { offsetToLineColumn } from './general';
@@ -134,8 +137,17 @@ export interface QuerySlice {
   sql: string;
 }
 
-export function findAllSqlQueriesInText(text: string): QuerySlice[] {
-  const found: QuerySlice[] = [];
+interface TextRange {
+  start: number;
+  end: number;
+}
+
+/**
+ * The queries that druid-query-toolkit can find: they start with one of a few keywords (or SET statements) and end
+ * where the toolkit stops parsing
+ */
+function findToolkitQueries(text: string): (TextRange & { sql: string })[] {
+  const found: (TextRange & { sql: string })[] = [];
 
   let remainingText = text;
   let offset = 0;
@@ -147,13 +159,9 @@ export function findAllSqlQueriesInText(text: string): QuerySlice[] {
 
     const sql = findSqlQueryPrefix(remainingText.slice(m.index));
     if (sql) {
-      const endIndex = m.index + sql.length;
       found.push({
-        index: found.length,
-        startOffset: offset + m.index,
-        startLineColumn: offsetToLineColumn(text, offset + m.index)!,
-        endOffset: offset + endIndex,
-        endLineColumn: offsetToLineColumn(text, offset + endIndex)!,
+        start: offset + m.index,
+        end: offset + m.index + sql.length,
         sql: cleanSqlQueryPrefix(sql),
       });
     }
@@ -180,6 +188,127 @@ export function findAllSqlQueriesInText(text: string): QuerySlice[] {
   }
 
   return found;
+}
+
+const COMMENT_NODES = new Set(['Issue', 'LineComment', 'BlockComment']);
+const WORD_NODES = new Set(['Keyword', 'FunctionName', 'Constant', 'TypeName', 'Identifier']);
+const QUERY_START_WORDS = new Set(['SELECT', 'WITH', 'EXPLAIN', 'INSERT', 'REPLACE']);
+
+interface Statement extends TextRange {
+  /** The first word in upper case, if the statement starts with a word */
+  firstWord?: string;
+  /** Where the SET statements right before this one start */
+  setStart?: number;
+  /** Where the first pipe operator starts */
+  pipeStart?: number;
+  /** The tokens (other than comments), a pair of parentheses or a pipe operator is one token */
+  tokens: TextRange[];
+}
+
+/**
+ * What the DruidSQL editor language makes of the text (it knows all of pipe syntax, unlike druid-query-toolkit): the
+ * statements (separated by semicolons) at the top and in each pair of parentheses, and where the words of the pipe
+ * operators (outside of their parentheses) start
+ */
+function parseStatements(text: string): { statements: Statement[]; pipeWordStarts: Set<number> } {
+  const statements: Statement[] = [];
+  const pipeWordStarts = new Set<number>();
+
+  const visit = (container: SyntaxNode) => {
+    let current: Statement | undefined;
+    let setStart: number | undefined;
+    for (let child = container.firstChild; child; child = child.nextSibling) {
+      const { name, from, to } = child;
+      if (COMMENT_NODES.has(name) || name === '(' || name === ')') continue;
+
+      // The semicolon ends the statement (and is part of it)
+      if (name === 'Punctuation' && text.slice(from, to) === ';') {
+        if (current) {
+          current.end = to;
+          statements.push(current);
+          setStart = current.firstWord === 'SET' ? (setStart ?? current.start) : undefined;
+        }
+        current = undefined;
+        continue;
+      }
+
+      current ??= {
+        start: from,
+        end: to,
+        firstWord: WORD_NODES.has(name) ? text.slice(from, to).toUpperCase() : undefined,
+        setStart,
+        tokens: [],
+      };
+      current.end = to;
+      current.tokens.push({ start: from, end: to });
+
+      if (name === 'Parens') visit(child);
+      if (name === 'PipeOperator') {
+        current.pipeStart ??= from;
+        for (let token = child.firstChild; token; token = token.nextSibling) {
+          if (WORD_NODES.has(token.name)) pipeWordStarts.add(token.from);
+          if (token.name === 'Parens') visit(token);
+        }
+      }
+    }
+    if (current) statements.push(current);
+  };
+
+  visit(dsqlParser.parse(text).topNode);
+  return { statements, pipeWordStarts };
+}
+
+/**
+ * The queries in the text that can be run on their own: the ones that druid-query-toolkit finds, and the ones with pipe
+ * syntax (including FROM-first queries) as the DruidSQL editor language parses them
+ */
+export function findAllSqlQueriesInText(text: string): QuerySlice[] {
+  const { statements, pipeWordStarts } = parseStatements(text);
+
+  const queries: (TextRange & { sql?: string })[] = [];
+  for (const query of findToolkitQueries(text)) {
+    // A query does not start in a pipe operator (unless it is in parentheses), like the SELECT of `|> SELECT a`
+    if (pipeWordStarts.has(query.start)) continue;
+
+    // The toolkit stops at the pipe operators that follow a query (one that is a part of a statement, not in its
+    // parentheses), the query goes on to the end of the statement
+    const piped = statements.find(
+      ({ setStart, end, pipeStart, tokens }) =>
+        query.end < end &&
+        (query.start === setStart || tokens.some(token => token.start === query.start)) &&
+        tokens.find(token => query.end < token.end)?.start === pipeStart,
+    );
+    queries.push(piped ? { start: query.start, end: piped.end } : query);
+  }
+
+  // The queries that start with FROM, and the statements with pipe operators that start like a query (the toolkit
+  // does not know all of pipe syntax), with the SET statements before them
+  for (const { start, end, firstWord, setStart, pipeStart } of statements) {
+    if (
+      firstWord === 'FROM' ||
+      (typeof pipeStart === 'number' && firstWord && QUERY_START_WORDS.has(firstWord))
+    ) {
+      queries.push({ start: setStart ?? start, end });
+    }
+  }
+
+  // The longest query of the ones that start at the same place
+  const longestQueries = new Map<number, TextRange & { sql?: string }>();
+  for (const query of queries) {
+    const longest = longestQueries.get(query.start);
+    if (!longest || longest.end < query.end) longestQueries.set(query.start, query);
+  }
+
+  return Array.from(longestQueries.values())
+    .sort((a, b) => a.start - b.start)
+    .map(({ start, end, sql }, index) => ({
+      index,
+      startOffset: start,
+      startLineColumn: offsetToLineColumn(text, start)!,
+      endOffset: end,
+      endLineColumn: offsetToLineColumn(text, end)!,
+      sql: sql ?? text.slice(start, end),
+    }));
 }
 
 const GRANULARITY_TO_ALIGN_TO_DAY: Record<string, boolean> = {
